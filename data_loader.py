@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 def load_infected_timeseries(data_dir=None):
