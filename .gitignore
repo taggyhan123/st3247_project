@@ -3,3 +3,5 @@ __pycache__/
 results/
 figures/
 .ipynb_checkpoints/
+/venv
+/sbi-logs/

@@ -1,6 +1,6 @@
 import numpy as np
-from summary_statistics_oop import SummaryStatistic, SummarySubset
-from st3247_project.abc_utils import PriorSampler, SummaryStatisticNormalizer
+from summary_statistic import SummaryStatistic, SummarySubset
+from abc_utils import PriorSampler, SummaryStatisticNormalizer
 
 from simulator import simulate
 

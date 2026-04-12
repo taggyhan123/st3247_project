@@ -1,149 +1,94 @@
-"""
-ABC-MCMC  (Marjoram, Molitor, Plagnol & Tavaré, 2003).
-
-A Markov chain Monte Carlo sampler within the ABC framework.  Instead of
-drawing blindly from the prior, the chain proposes parameters informed by
-the current state, which is more efficient for reaching small tolerances.
-
-Algorithm:
-  1. Initialise θ_0 (e.g. from a rejection ABC accepted sample)
-  2. At each iteration:
-     a. Propose θ' ~ q(· | θ_current)   [Gaussian random walk]
-     b. If θ' outside prior support, reject immediately
-     c. Simulate y' ~ model(θ'), compute S(y')
-     d. If d(S(y'), S_obs) < ε:
-          accept θ' with probability min(1, π(θ')/π(θ) · q(θ|θ')/q(θ'|θ))
-          (for uniform prior + symmetric proposal: always accept)
-        Else: stay at θ_current
-
-Reference:
-  Marjoram et al. (2003). "Markov chain Monte Carlo without likelihoods."
-  PNAS 100(26), 15324–15328.
-"""
-
 import numpy as np
-from summary_stats import compute_summaries
-from abc_rejection import PRIOR_BOUNDS, normalised_distance
+from summary_statistic import SummaryStatistic, SummarySubset
+from abc_utils import PriorSampler, SummaryStatisticNormalizer
+from simulator import simulate
 
+class MCMCABC:
+    def __init__(self,
+                 rng: np.random.Generator,
+                 normalizer: SummaryStatisticNormalizer,
+                 prior_sampler: PriorSampler,
+                 verbose: bool = False):
+        self.rng = rng
+        self.normalizer = normalizer
+        self.prior_sampler = prior_sampler
+        self.verbose = verbose
 
-def _in_prior(theta):
-    """Check if theta is within prior bounds."""
-    bounds = [PRIOR_BOUNDS["beta"], PRIOR_BOUNDS["gamma"], PRIOR_BOUNDS["rho"]]
-    for val, (lo, hi) in zip(theta, bounds):
-        if val < lo or val > hi:
-            return False
-    return True
+    def run(self,
+            s_obs: SummaryStatistic,
+            n_iter: int,
+            epsilon: float,
+            theta_init: np.ndarray,
+            proposal_cov: np.ndarray,
+            subset: SummarySubset = SummarySubset.ALL,
+            n_reps_per_sim: int = 1):
+        
+        chain = np.zeros((n_iter, 3))
+        dist_chain = np.zeros(n_iter)
 
+        theta_current = theta_init.copy()
 
-def run_abc_mcmc(
-    s_obs,
-    mads,
-    epsilon,
-    n_iter,
-    simulator_fn,
-    theta_init,
-    proposal_cov,
-    summary_fn=None,
-    indices=None,
-    seed=0,
-    verbose=True,
-):
-    """Run ABC-MCMC.
+        # Compute distance at initial point
+        rep_stats = [SummaryStatistic(*simulate(*theta_current, rng=self.rng)) 
+                     for _ in range(n_reps_per_sim)]
+        stat_current = SummaryStatistic.aggregate_summary_statistics(rep_stats, agg="mean")
+        d_current = self.normalizer.get_normalized_distance(stat_current, s_obs, subset)
 
-    Parameters
-    ----------
-    s_obs : ndarray (d,)        — observed summary statistics
-    mads : ndarray (d,)         — MAD normalisation constants
-    epsilon : float             — acceptance threshold on normalised distance
-    n_iter : int                — number of MCMC iterations
-    simulator_fn : callable     — f(beta, gamma, rho, seed=int)
-    theta_init : ndarray (3,)   — starting parameter values
-    proposal_cov : ndarray (3,3) — covariance matrix for Gaussian random walk
-    summary_fn : callable or None
-    indices : list[int] or None — subset of summary indices
-    seed : int
-    verbose : bool
+        n_accept = 0
 
-    Returns
-    -------
-    chain : ndarray (n_iter, 3)     — parameter chain (including repeats)
-    distances : ndarray (n_iter,)   — distances at each step
-    acceptance_rate : float
-    """
-    if summary_fn is None:
-        summary_fn = compute_summaries
+        for i in range(n_iter):
+            if self.verbose and (i + 1) % 5000 == 0:
+                rate = n_accept / (i + 1)
+                print(f"  Iter {i+1}/{n_iter}, accept rate: {rate:.3f}")
 
-    rng = np.random.default_rng(seed)
+            # Propose
+            theta_prop = self.rng.multivariate_normal(theta_current, proposal_cov)
 
-    chain = np.zeros((n_iter, 3))
-    dist_chain = np.zeros(n_iter)
+            # Prior check
+            if not PriorSampler.in_prior(theta_prop):
+                chain[i] = theta_current
+                dist_chain[i] = d_current
+                continue
 
-    theta_current = theta_init.copy()
+            # Simulate
+            rep_stats_prop = [SummaryStatistic(*simulate(*theta_prop, rng=self.rng)) 
+                              for _ in range(n_reps_per_sim)]
+            stat_prop = SummaryStatistic.aggregate_summary_statistics(rep_stats_prop, agg="mean")
+            d_prop = self.normalizer.get_normalized_distance(stat_prop, s_obs, subset)
 
-    # Compute distance at initial point
-    inf, rew, deg = simulator_fn(*theta_current, seed=int(rng.integers(0, 2**31)))
-    s_current = summary_fn(inf, rew, deg)
-    d_current = normalised_distance(s_current, s_obs, mads, indices)
+            # Accept / reject
+            if d_prop < epsilon:
+                theta_current = theta_prop
+                d_current = d_prop
+                n_accept += 1
 
-    n_accept = 0
-
-    for i in range(n_iter):
-        if verbose and (i + 1) % 5000 == 0:
-            rate = n_accept / (i + 1)
-            print(f"  Iter {i+1}/{n_iter}, accept rate: {rate:.3f}")
-
-        # Propose
-        theta_prop = rng.multivariate_normal(theta_current, proposal_cov)
-
-        # Prior check
-        if not _in_prior(theta_prop):
             chain[i] = theta_current
             dist_chain[i] = d_current
-            continue
 
-        # Simulate
-        inf, rew, deg = simulator_fn(*theta_prop, seed=int(rng.integers(0, 2**31)))
-        s_prop = summary_fn(inf, rew, deg)
-        d_prop = normalised_distance(s_prop, s_obs, mads, indices)
+        acceptance_rate = n_accept / n_iter
+        if self.verbose:
+            print(f"  Final acceptance rate: {acceptance_rate:.4f}")
 
-        # Accept / reject
-        if d_prop < epsilon:
-            theta_current = theta_prop
-            d_current = d_prop
-            n_accept += 1
+        return chain, dist_chain, acceptance_rate
 
-        chain[i] = theta_current
-        dist_chain[i] = d_current
-
-    acceptance_rate = n_accept / n_iter
-    if verbose:
-        print(f"  Final acceptance rate: {acceptance_rate:.4f}")
-
-    return chain, dist_chain, acceptance_rate
-
-
-def effective_sample_size(chain):
-    """Estimate ESS from autocorrelation for each parameter dimension.
-
-    Returns
-    -------
-    ess : ndarray (n_params,)
-    """
-    n, d = chain.shape
-    ess = np.zeros(d)
-    for k in range(d):
-        x = chain[:, k]
-        x = x - np.mean(x)
-        var = np.var(x)
-        if var == 0:
-            ess[k] = 1.0
-            continue
-        # Compute autocorrelation until it drops below 0.05
-        rho_sum = 0.0
-        for lag in range(1, n):
-            c = np.mean(x[: n - lag] * x[lag:]) / var
-            if c < 0.05:
-                break
-            rho_sum += c
-        ess[k] = n / (1 + 2 * rho_sum)
-    return ess
+    @staticmethod
+    def effective_sample_size(chain: np.ndarray) -> np.ndarray:
+        """Estimate ESS from autocorrelation for each parameter dimension."""
+        n, d = chain.shape
+        ess = np.zeros(d)
+        for k in range(d):
+            x = chain[:, k]
+            x = x - np.mean(x)
+            var = np.var(x)
+            if var == 0:
+                ess[k] = 1.0
+                continue
+            # Compute autocorrelation until it drops below 0.05
+            rho_sum = 0.0
+            for lag in range(1, n):
+                c = np.mean(x[: n - lag] * x[lag:]) / var
+                if c < 0.05:
+                    break
+                rho_sum += c
+            ess[k] = n / (1 + 2 * rho_sum)
+        return ess

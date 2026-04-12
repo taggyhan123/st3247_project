@@ -1,8 +1,11 @@
 from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
+import torch
 
-from summary_statistics_oop import SummaryStatistic, SummarySubset
+from sbi.utils import BoxUniform
+
+from summary_statistic import SummaryStatistic, SummarySubset
 
 class SummaryStatisticNormalizer:
     def __init__(self, prior_samples: list[SummaryStatistic]):
@@ -42,3 +45,30 @@ class PriorSampler:
         gammas = self.rng.uniform(*PriorSampler.PRIOR_BOUNDS["gamma"], size=n_samples)
         rhos = self.rng.uniform(*PriorSampler.PRIOR_BOUNDS["rho"], size=n_samples)
         return betas, gammas, rhos
+    
+    @staticmethod
+    def in_prior(theta: np.ndarray) -> bool:
+        """Check if theta is within prior bounds."""
+        bounds = [
+            PriorSampler.PRIOR_BOUNDS["beta"],
+            PriorSampler.PRIOR_BOUNDS["gamma"],
+            PriorSampler.PRIOR_BOUNDS["rho"]
+        ]
+        for val, (lo, hi) in zip(theta, bounds):
+            if val < lo or val > hi:
+                return False
+        return True
+
+    @staticmethod
+    def get_torch_prior():
+        low = torch.tensor([
+            PriorSampler.PRIOR_BOUNDS["beta"][0],
+            PriorSampler.PRIOR_BOUNDS["gamma"][0],
+            PriorSampler.PRIOR_BOUNDS["rho"][0],
+        ], dtype=torch.float32)
+        high = torch.tensor([
+            PriorSampler.PRIOR_BOUNDS["beta"][1],
+            PriorSampler.PRIOR_BOUNDS["gamma"][1],
+            PriorSampler.PRIOR_BOUNDS["rho"][1],
+        ], dtype=torch.float32)
+        return BoxUniform(low=low, high=high)

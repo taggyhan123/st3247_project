@@ -4,7 +4,6 @@ Load observed data CSV files.
 Data directory: ../data/ relative to this file.
 """
 
-import numpy as np
 import pandas as pd
 from pathlib import Path
 
