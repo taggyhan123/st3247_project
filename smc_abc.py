@@ -29,10 +29,12 @@ class SMCABC:
             alpha: float = 0.5,
             min_epsilon: float = 0.5,
             subset: SummarySubset = SummarySubset.ALL,
-            n_reps_per_sim: int = 1):
-        
+            n_reps_per_sim: int = 1,
+            max_sims: int = None):
+
         all_particles = []
         epsilons = []
+        total_sims = 0
 
         # ---- Generation 0: sample from prior ----
         if self.verbose:
@@ -49,12 +51,13 @@ class SMCABC:
         p_betas, p_gammas, p_rhos = self.prior_sampler.sample(pool_size)
         for i in range(pool_size):
             theta = np.array([p_betas[i], p_gammas[i], p_rhos[i]])
-            rep_stats = [SummaryStatistic(*simulate(*theta, rng=self.rng)) 
+            rep_stats = [SummaryStatistic(*simulate(*theta, rng=self.rng))
                          for _ in range(n_reps_per_sim)]
             stat = SummaryStatistic.aggregate_summary_statistics(rep_stats, agg="mean")
             d = self.normalizer.get_normalized_distance(stat, s_obs, subset)
             pool_thetas[i] = theta
             pool_dists[i] = d
+        total_sims += pool_size * n_reps_per_sim
 
         # Set initial epsilon as the alpha-quantile of pool distances
         epsilon = float(np.quantile(pool_dists, alpha))
@@ -75,10 +78,11 @@ class SMCABC:
             while filled < n_particles:
                 p_b, p_g, p_r = self.prior_sampler.sample(1)
                 theta = np.array([p_b[0], p_g[0], p_r[0]])
-                rep_stats = [SummaryStatistic(*simulate(*theta, rng=self.rng)) 
+                rep_stats = [SummaryStatistic(*simulate(*theta, rng=self.rng))
                              for _ in range(n_reps_per_sim)]
                 stat = SummaryStatistic.aggregate_summary_statistics(rep_stats, agg="mean")
                 d = self.normalizer.get_normalized_distance(stat, s_obs, subset)
+                total_sims += n_reps_per_sim
                 if d <= epsilon:
                     particles[filled] = theta
                     distances[filled] = d
@@ -93,6 +97,11 @@ class SMCABC:
 
         # ---- Generations 1, 2, ... ----
         for gen in range(1, n_generations):
+            if max_sims is not None and total_sims >= max_sims:
+                if self.verbose:
+                    print(f"  Budget exhausted ({total_sims} sims), stopping.")
+                break
+
             # New tolerance: alpha-quantile of current distances
             epsilon_new = float(np.quantile(distances, alpha))
             if epsilon_new >= epsilon:
@@ -180,10 +189,12 @@ class SMCABC:
             weights = new_weights
             all_particles.append(particles.copy())
 
+            total_sims += n_sim_total
+
             # Effective sample size
             ess = 1.0 / np.sum(weights ** 2)
 
             if self.verbose:
-                print(f"  sims this gen: {n_sim_total}, ESS: {ess:.1f}")
+                print(f"  sims this gen: {n_sim_total}, total: {total_sims}, ESS: {ess:.1f}")
 
-        return particles, weights, epsilons, all_particles
+        return particles, weights, epsilons, all_particles, total_sims
