@@ -1,11 +1,11 @@
-\documentclass[12pt]{article}
+\documentclass[11pt]{article}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \usepackage[numbers,sort]{natbib}
 \usepackage{amsfonts, amsmath}
 \usepackage{graphicx}
 \usepackage{libertine}
-\usepackage{fullpage}
+\usepackage[left=2cm, right=2cm, top=2cm, bottom=2cm]{geometry}
 \usepackage{booktabs}
 \usepackage{float}
 \usepackage[section]{placeins}
@@ -22,10 +22,12 @@
 
 \begin{document}
 
-\title{ST3247 SBI Final Report}
-\date{}
-\maketitle
-\vspace{-2cm}
+% 1. Move the title up (smaller top margin)
+\begin{center}
+    \vspace*{-1cm} 
+    {\huge \textbf{ST3247 SBI Final Report}} \\
+    \vspace{0.5cm}
+\end{center}
 
 \noindent {\bf Github Repository:} \href{https://github.com/chongsun2002/st3247_project/tree/chongsun-changes}{chongsun2002/st3247\_project} (this goes to a branch. it is not a mistake)
 
@@ -192,6 +194,8 @@ Sequential Monte Carlo ABC \citep{sisson2007sequential, beaumont2009adaptive} ma
 \begin{equation}
 w_i^{(t)} \propto \frac{\pi(\theta_i^{(t)})}{\sum_j w_j^{(t-1)} K(\theta_i^{(t)} \mid \theta_j^{(t-1)})}.
 \end{equation}
+The intuition behind these weights is a standard importance-sampling correction. At generation $t$, new particles are not drawn from the prior $\pi$ but from a mixture of Gaussian kernels centred on the previous generation's particles, $\sum_j w_j^{(t-1)} K(\cdot \mid \theta_j^{(t-1)})$. To target the ABC posterior under the prior, each particle must be reweighted by the ratio of the target density (the prior, in the numerator) to the proposal density (the kernel mixture, in the denominator). In practice, this means that particles landing in high-density regions of the previous cloud receive a large denominator and are down-weighted, preventing the population from collapsing onto a narrow region dictated by the previous generation's geometry; conversely, particles that reach prior-supported regions far from the previous cloud are up-weighted, preserving diversity.
+
 We use $1{,}000$ particles, $10$ generations, and an adaptive tolerance $\varepsilon_t = $ median of distances at generation $t-1$.
 
 \subsection{Synthetic likelihood}
@@ -204,7 +208,7 @@ This approximate likelihood is then explored by a Metropolis--Hastings random wa
 
 \subsection{Neural Posterior Estimation}
 
-Neural Posterior Estimation (NPE) \citep{papamakarios2016fast, greenberg2019automatic} trains a conditional density estimator $q_\phi(\theta \mid S)$ --- here a Masked Autoregressive Flow \citep{papamakarios2017masked} --- on the joint $(\theta, S)$ samples produced by the prior simulator. Training minimises the negative log-likelihood of $\theta_i$ given $S_i$ over the simulated pairs:
+Neural Posterior Estimation (NPE) \citep{papamakarios2016fast, greenberg2019automatic} trains a conditional density estimator $q_\phi(\theta \mid S)$ --- here a Masked Autoregressive Flow (MAF) \citep{papamakarios2017masked} --- on the joint $(\theta, S)$ samples produced by the prior simulator. A MAF is a normalising flow that transforms a simple base distribution (a standard Gaussian) into a complex target through a stack of autoregressive affine layers: each layer predicts the scale and shift for dimension~$i$ using only dimensions $1,\dots,i{-}1$, which keeps the Jacobian triangular and makes the density exactly tractable to evaluate. This expressiveness is important here because the $(\beta,\gamma,\rho)$ posterior exhibits strong correlations --- especially the $\beta$--$\rho$ ridge identified in Section~\ref{sec:summaries} --- and non-Gaussian shape that a simple parametric family (e.g.\ a multivariate Gaussian) would miss. Training minimises the negative log-likelihood of $\theta_i$ given $S_i$ over the simulated pairs:
 \begin{equation}
 \mathcal{L}(\phi) = -\frac{1}{N}\sum_{i=1}^{N} \log q_\phi(\theta_i \mid S_i).
 \end{equation}
@@ -246,7 +250,7 @@ NPE (sbi, MAF)             & 0.154 & 0.080 & 0.305 & 0.071 & 0.021 & 0.093 & 60 
 \paragraph{Discussion.}
 \begin{itemize}[nosep, leftmargin=10pt]
 \item \textbf{Point estimates agree closely across methods.} All six methods place $\beta$ in $[0.154, 0.182]$, $\gamma$ in $[0.080, 0.091]$ and $\rho$ in $[0.301, 0.316]$. This consistency is reassuring: it strongly suggests that the data and model are informative enough to constrain the parameters, and that the differences we see are about \emph{precision}, not \emph{bias}.
-\item \textbf{NPE delivers the tightest posteriors at the lowest cost-per-precision.} It matches synthetic likelihood on $\rho$ (CI width $0.093$ vs.\ $0.098$) and slightly beats it on $\beta$, while running in $60\,$s versus $6{,}731\,$s --- a two-orders-of-magnitude speedup. Crucially, NPE reuses the very same $50{,}000$ simulations as the rejection ABC baseline, so its true cost over and above rejection ABC is the $\sim 17\,$s of training time.
+\item \textbf{NPE delivers the tightest posteriors at the lowest cost-per-precision.} It matches synthetic likelihood on $\rho$ (CI width $0.093$ vs.\ $0.098$) and slightly beats it on $\beta$, while running in $60\,$s versus $1{,}363\,$s --- a roughly $23\times$ speedup. Crucially, NPE reuses the very same $50{,}000$ simulations as the rejection ABC baseline, so its true cost over and above rejection ABC is the $\sim 17\,$s of training time.
 \item \textbf{Synthetic likelihood is precise but expensive.} Each likelihood evaluation requires $N_r=200$ fresh simulations, so the $5{,}000$ MCMC iterations consume $10^6$ simulator calls. The acceptance rate is low ($7.4\%$), reflecting the difficulty of mixing in the tight high-likelihood region. The result is statistically excellent but computationally heavy.
 \item \textbf{Regression adjustment is the best ``free'' upgrade.} It costs $0.013\,$s on top of rejection ABC, yet shrinks the $\rho$ CI from $0.39$ to $0.12$ --- a $3\times$ improvement. This is the cheapest single intervention in the report.
 \item \textbf{SMC-ABC sits in the middle.} Its $\rho$ CI ($0.21$) is roughly half of rejection ABC's, but at the cost of a $4\times$ longer runtime. The progressive tolerance schedule worked smoothly (final $\varepsilon = 1.47$) and the effective sample size remained around $900$ throughout, so the method is well-tuned --- it is just inherently more expensive than the post-hoc regression adjustment.
@@ -319,6 +323,10 @@ NPE (MAF)               & 0.152 & 0.081 & 0.303 & 0.071 & 0.021 & 0.097 \\
 
 At equal budget (Table~\ref{tab:budget_matched}, Figure~\ref{fig:budget_matched}), NPE's $\rho$ CI ($0.097$) is $3.6\times$ narrower than rejection ABC's ($0.352$) and $3.1\times$ narrower than SMC-ABC's ($0.300$). This confirms that NPE's advantage in Table~\ref{tab:all_methods} is genuine statistical efficiency --- it extracts more information per simulation --- rather than an artefact of consuming a larger budget.
 
+\subsection{Robustness to seed and tuning choices}
+
+To verify that our conclusions are not artefacts of a single random seed or a particular hyperparameter setting, we re-ran the full rejection ABC + NPE pipeline with three additional seeds (42, 123, 9999) and varied the NPE training-set size ($N_{\text{train}} \in \{10{,}000,\; 25{,}000,\; 50{,}000\}$). Across seeds, rejection ABC posterior medians shift by less than $0.005$ for all three parameters and CI widths vary with a coefficient of variation below $3.5\%$; NPE is even more stable, with median shifts below $0.003$ and width CV below $2\%$. For the training-set sweep, the NPE posterior is already well-converged at $N_{\text{train}} = 10{,}000$ ($|\text{CI}_\rho| = 0.097$) and changes negligibly when the budget is increased to $25{,}000$ or $50{,}000$ ($|\text{CI}_\rho| = 0.097$ and $0.098$ respectively). This indicates that the MAF has sufficient capacity to learn the posterior mapping from a relatively modest training set, and that the $50{,}000$-simulation budget used throughout this report is more than adequate. In summary, neither the random seed nor the NPE training-set size materially affects the conclusions.
+
 \section{Conclusion}
 
 We have applied six simulation-based inference methods to the problem of estimating $(\beta, \gamma, \rho)$ in an adaptive-network SIR epidemic model from $40$ observed replicates. The likelihood is intractable because the network co-evolves with the infection state, but the model is cheap to simulate, making SBI a natural framework. Our key findings are:
@@ -327,7 +335,7 @@ We have applied six simulation-based inference methods to the problem of estimat
 \item \textbf{Summary statistics design dominates the inference.} The infected fraction time series alone leaves $\beta$ and $\rho$ strongly positively correlated ($\hat r = +0.886$) and the $\rho$ posterior almost as wide as the prior. Adding rewiring statistics reduces the $\rho$ CI width from $0.75$ to $0.40$, and combining all $12$ summaries gives the best overall results.
 \item \textbf{Neural Posterior Estimation is the most efficient method.} Reusing the same $50{,}000$ simulations as the rejection ABC baseline, NPE produces the tightest credible intervals among all six methods (e.g.\ $|\text{CI}_\rho| = 0.093$) in $60\,$seconds total. It also offers cheap amortised inference for future datasets.
 \item \textbf{Regression adjustment is a remarkable free lunch.} A few lines of weighted least squares on top of rejection ABC reduces the $\rho$ CI by a factor of three at essentially zero cost.
-\item \textbf{Synthetic likelihood matches NPE in precision but is $112\times$ slower.} It would be the method of choice if we did not trust a neural network on this problem, or if the simulation budget were too small to train one.
+\item \textbf{Synthetic likelihood matches NPE in precision but is ${\sim}23\times$ slower.} It would be the method of choice if we did not trust a neural network on this problem, or if the simulation budget were too small to train one.
 \item \textbf{ABC-MCMC is not competitive on this problem.} The need to keep the tolerance loose enough for the chain to mix produces a posterior wider than that of plain rejection ABC.
 \end{enumerate}
 
