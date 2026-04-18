@@ -2,6 +2,10 @@
 Budget-matched comparison: run Rejection ABC, SMC-ABC, and NPE each
 using exactly 50,000 simulator calls to isolate statistical efficiency
 from compute-budget effects.
+
+Rejection ABC and NPE reuse the same 50,000 simulations from the main
+rejection ABC run (results/rejection_abc_50k.npz). SMC-ABC runs its own
+simulations since it is an iterative algorithm.
 """
 
 import numpy as np
@@ -9,32 +13,18 @@ import matplotlib.pyplot as plt
 import os
 import time
 
-from data_loader import load_all
-from simulator import simulate, simulate_fast
+from simulator import simulate_fast
 from summary_statistic import (
-    compute_observed_summaries,
     SummaryStatistic,
     SummarySubset
 )
-from abc_rejection import BasicRejectionABC
 from smc_abc import SMCABC
 from npe import NeuralPosteriorEstimation
 from abc_utils import PriorSampler, SummaryStatisticNormalizer
 
 
-RNG_SEED = 6769
 BUDGET = 50_000
 PARAM_NAMES = [r'$\beta$', r'$\gamma$', r'$\rho$']
-
-
-def run_pilot(prior_sampler, rng, n_pilot=2000):
-    """Run pilot simulations for MAD normaliser."""
-    pilot_summaries = []
-    p_betas, p_gammas, p_rhos = prior_sampler.sample(n_pilot)
-    for i in range(n_pilot):
-        inf, rew, deg = simulate(p_betas[i], p_gammas[i], p_rhos[i], rng=rng)
-        pilot_summaries.append(SummaryStatistic(inf, rew, deg))
-    return SummaryStatisticNormalizer(pilot_summaries)
 
 
 def print_results(results):
@@ -78,43 +68,47 @@ def plot_budget_matched(results):
 
 
 def main():
-    rng = np.random.default_rng(RNG_SEED)
+    rng = np.random.default_rng(42)
 
     # Warm up Numba
     _ = simulate_fast(0.2, 0.1, 0.3, seed=0)
 
-    # Load data
-    inf_ts, rew_ts, deg_hist = load_all()
-    obs_summaries = compute_observed_summaries(inf_ts, rew_ts, deg_hist)
-    s_obs = SummaryStatistic.aggregate_summary_statistics(obs_summaries, agg="median")
+    # Load the main rejection ABC 50k simulations
+    rej_path = 'results/rejection_abc_50k.npz'
+    print(f"Loading main rejection ABC results from {rej_path}...")
+    data = np.load(rej_path)
+    thetas = data['thetas']
+    distances = data['distances']
+    summaries = data['summaries']
+    mads = data['mads']
+    s_obs_array = data['s_obs']
+
+    # Reconstruct normalizer and s_obs from saved data
+    normalizer = SummaryStatisticNormalizer.__new__(SummaryStatisticNormalizer)
+    normalizer.mads = mads
+    s_obs = SummaryStatistic(precomputed_summaries=s_obs_array)
 
     prior_sampler = PriorSampler(rng)
-    normalizer = run_pilot(prior_sampler, rng)
 
     results = {}
     cache_path = 'results/budget_matched.npz'
 
     if os.path.exists(cache_path):
         print(f"Loading cached budget-matched results from {cache_path}")
-        data = np.load(cache_path)
-        results['Rejection ABC'] = {'samples': data['rej_samples'], 'n_sims': BUDGET}
-        results['SMC-ABC'] = {'samples': data['smc_samples'], 'n_sims': int(data['smc_n_sims'])}
-        results['NPE'] = {'samples': data['npe_samples'], 'n_sims': BUDGET}
+        cached = np.load(cache_path)
+        results['Rejection ABC'] = {'samples': cached['rej_samples'], 'n_sims': BUDGET}
+        results['SMC-ABC'] = {'samples': cached['smc_samples'], 'n_sims': int(cached['smc_n_sims'])}
+        results['NPE'] = {'samples': cached['npe_samples'], 'n_sims': BUDGET}
     else:
-        # 1. Rejection ABC (already 50k)
-        print(f"\n--- Rejection ABC ({BUDGET:,} sims) ---")
-        t0 = time.time()
-        abc_runner = BasicRejectionABC(rng=rng, normalizer=normalizer,
-                                       prior_sampler=prior_sampler, verbose=True)
-        thetas, distances, summaries, acc_mask, _ = abc_runner.run(
-            s_obs=s_obs, n_sim=BUDGET, subset=SummarySubset.ALL,
-            acceptance_quantile=0.01
-        )
+        # 1. Rejection ABC — reuse the same 50k sims, apply q=1% acceptance
+        print(f"\n--- Rejection ABC (reusing {BUDGET:,} sims from main run) ---")
+        thr = float(np.quantile(distances, 0.01))
+        acc_mask = distances <= thr
         rej_samples = thetas[acc_mask]
-        print(f"  Done in {time.time()-t0:.1f}s, {rej_samples.shape[0]} accepted")
+        print(f"  {rej_samples.shape[0]} accepted (threshold={thr:.3f})")
         results['Rejection ABC'] = {'samples': rej_samples, 'n_sims': BUDGET}
 
-        # 2. SMC-ABC with budget cap
+        # 2. SMC-ABC with budget cap (must run its own sims)
         print(f"\n--- SMC-ABC (budget={BUDGET:,}) ---")
         t0 = time.time()
         smc_runner = SMCABC(rng=rng, normalizer=normalizer,
@@ -128,8 +122,8 @@ def main():
               f"{len(smc_eps)} generations")
         results['SMC-ABC'] = {'samples': smc_particles, 'n_sims': smc_n_sims}
 
-        # 3. NPE (reuse rejection ABC sims)
-        print(f"\n--- NPE (reusing {BUDGET:,} sims from Rejection ABC) ---")
+        # 3. NPE — train on the same 50k sims from the main run
+        print(f"\n--- NPE (reusing {BUDGET:,} sims from main run) ---")
         t0 = time.time()
         npe_runner = NeuralPosteriorEstimation(rng=rng, prior_sampler=prior_sampler, verbose=True)
         npe_samples, _ = npe_runner.run(

@@ -84,7 +84,7 @@ This is the same prescription used in standard ABC packages and has the advantag
 
 Table~\ref{tab:rejection_quantile_sweep} reports the marginal posterior medians and 95\% credible intervals as the acceptance quantile $q$ varies. As expected, smaller $q$ produces tighter posteriors but more Monte Carlo noise from the smaller accepted sample. The $q=1\%$ choice strikes a reasonable balance.
 
-\begin{table}[htb]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{lcccccc}
@@ -101,7 +101,7 @@ $q$ & $\hat\beta$ & $\hat\gamma$ & $\hat\rho$ & $\beta$ 95\% CI width & $\gamma$
 \label{tab:rejection_quantile_sweep}
 \end{table}
 
-\begin{figure}[htb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.75\textwidth]{../figures/rejection_abc_corner.png}
 \caption{Approximate posterior over $(\beta,\gamma,\rho)$ from rejection ABC at $q=1\%$. Marginal histograms on the diagonal; pairwise scatter plots off-diagonal. The posterior is well-concentrated for $\beta$ and $\gamma$ but visibly broader for $\rho$, reflecting the harder identifiability of the rewiring rate.}
@@ -112,7 +112,7 @@ The corner plot in Figure~\ref{fig:rejection_corner} shows the joint and margina
 
 \paragraph{Posterior predictive check.} Figure~\ref{fig:posterior_predictive} overlays $200$ posterior predictive simulations (drawn from the NPE posterior; see Section~\ref{sec:advanced}) on the $40$ observed replicates for all three observable types. The predicted infected and rewiring trajectories bracket the observed replicates closely, and the predicted degree histogram matches the observed one within its 90\% envelope. This confirms that the inferred parameters produce data consistent with the observations.
 
-\begin{figure}[htb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.95\textwidth]{../figures/posterior_predictive.png}
 \caption{Posterior predictive check. Thin grey lines are the 40 observed replicates; the coloured band is the 5th--95th percentile of 200 simulations drawn from the NPE posterior, with the median shown as a solid line. Right panel: observed vs.\ predicted degree histograms with 90\% error bars.}
@@ -190,13 +190,11 @@ ABC-MCMC \citep{marjoram2003markov} runs a Markov chain whose stationary distrib
 
 \subsection{SMC-ABC}
 
-Sequential Monte Carlo ABC \citep{sisson2007sequential, beaumont2009adaptive} maintains a population of weighted particles that is propagated through a sequence of decreasing tolerances $\varepsilon_0 > \varepsilon_1 > \dots$ The basic SMC-ABC framework was introduced by \citet{sisson2007sequential}; we follow the adaptive variant of \citet{beaumont2009adaptive}, which sets each new tolerance as a quantile of the current distances and uses a perturbation kernel whose covariance is $2\widehat{\text{Cov}}$ of the alive particles. At each generation, particles are resampled in proportion to their weights, perturbed by this Gaussian kernel, and accepted at the tighter tolerance. Importance weights are recomputed as
+Sequential Monte Carlo ABC \citep{sisson2007sequential, beaumont2009adaptive} maintains a population of weighted particles that is propagated through a sequence of decreasing tolerances $\varepsilon_0 > \varepsilon_1 > \dots$ The basic SMC-ABC framework was introduced by \citet{sisson2007sequential}, whose key insight was to apply \emph{partial rejection control} (PRC) to the ABC setting. As most simulator draws at a tight tolerance yield zero weight, PRC replaces those dead particles by resampling and perturbing survivors from the previous generation, ensuring that every particle in the final population carries useful information. We follow the adaptive variant of \citet{beaumont2009adaptive}, which sets each new tolerance as a quantile of the current distances and uses a perturbation kernel whose covariance is $2\widehat{\text{Cov}}$ of the alive particles. At each generation, particles are resampled in proportion to their weights, perturbed by this Gaussian kernel, and accepted at the tighter tolerance. Following \citet{beaumont2009adaptive}, importance weights are recomputed as
 \begin{equation}
 w_i^{(t)} \propto \frac{\pi(\theta_i^{(t)})}{\sum_j w_j^{(t-1)} K(\theta_i^{(t)} \mid \theta_j^{(t-1)})}.
 \end{equation}
-The intuition behind these weights is a standard importance-sampling correction. At generation $t$, new particles are not drawn from the prior $\pi$ but from a mixture of Gaussian kernels centred on the previous generation's particles, $\sum_j w_j^{(t-1)} K(\cdot \mid \theta_j^{(t-1)})$. To target the ABC posterior under the prior, each particle must be reweighted by the ratio of the target density (the prior, in the numerator) to the proposal density (the kernel mixture, in the denominator). In practice, this means that particles landing in high-density regions of the previous cloud receive a large denominator and are down-weighted, preventing the population from collapsing onto a narrow region dictated by the previous generation's geometry; conversely, particles that reach prior-supported regions far from the previous cloud are up-weighted, preserving diversity.
-
-We use $1{,}000$ particles, $10$ generations, and an adaptive tolerance $\varepsilon_t = $ median of distances at generation $t-1$.
+The intuition behind these weights is a standard importance-sampling correction. At generation $t$, new particles are not drawn from the prior $\pi$ but from a mixture of Gaussian kernels centred on the previous generation's particles, $\sum_j w_j^{(t-1)} K(\cdot \mid \theta_j^{(t-1)})$. To target the ABC posterior under the prior, each particle must be reweighted by the ratio of the target density (the prior, in the numerator) to the proposal density (the kernel mixture, in the denominator). In practice, this means that particles landing in high-density regions of the previous cloud receive a large denominator and are down-weighted, preventing the population from collapsing onto a narrow region dictated by the previous generation's geometry; conversely, particles that reach prior-supported regions far from the previous cloud are up-weighted, preserving diversity. We use $1{,}000$ particles, $10$ generations, and an adaptive tolerance $\varepsilon_t = $ median of distances at generation $t-1$.
 
 \subsection{Synthetic likelihood}
 
@@ -212,13 +210,13 @@ Neural Posterior Estimation (NPE) \citep{papamakarios2016fast, greenberg2019auto
 \begin{equation}
 \mathcal{L}(\phi) = -\frac{1}{N}\sum_{i=1}^{N} \log q_\phi(\theta_i \mid S_i).
 \end{equation}
-Once trained, the posterior at the observed summary $S_{\text{obs}}$ can be sampled from in milliseconds without any further simulation. Crucially, NPE is \emph{amortised}: it would also give cheap posteriors for any other observed dataset, without retraining. We use the \texttt{sbi} package \citep{tejero2020sbi} with the default MAF and reuse the same $50{,}000$ simulations from the rejection ABC run --- no extra simulator budget is required.
+Once trained, the posterior at the observed summary $S_{\text{obs}}$ can be sampled from in milliseconds without any further simulation. Crucially, NPE is \emph{amortised}: it would also give cheap posteriors for any other observed dataset, without retraining. We use the \texttt{sbi} package \citep{tejero2020sbi} with the default MAF and reuse the same $50{,}000$ simulations from the rejection ABC run.
 
 \subsection{Comparison}
 
 Table~\ref{tab:all_methods} aggregates the posterior summaries and wall-clock times for all six methods.
 
-\begin{table}[htb]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{lcccccccc}
@@ -240,7 +238,7 @@ NPE (sbi, MAF)             & 0.154 & 0.080 & 0.305 & 0.071 & 0.021 & 0.093 & 60 
 \label{tab:all_methods}
 \end{table}
 
-\begin{figure}[htb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.80\textwidth]{../figures/all_methods_comparison.png}
 \caption{Marginal posterior densities for $\beta$, $\gamma$, $\rho$ from all six methods. NPE (purple) and Synthetic Likelihood (purple) produce essentially overlapping, very tight posteriors; the classical ABC methods are progressively wider; ABC-MCMC is the widest, reflecting the inherent looseness imposed by its tolerance.}
@@ -254,20 +252,20 @@ NPE (sbi, MAF)             & 0.154 & 0.080 & 0.305 & 0.071 & 0.021 & 0.093 & 60 
 \item \textbf{Synthetic likelihood is precise but expensive.} Each likelihood evaluation requires $N_r=200$ fresh simulations, so the $5{,}000$ MCMC iterations consume $10^6$ simulator calls. The acceptance rate is low ($7.4\%$), reflecting the difficulty of mixing in the tight high-likelihood region. The result is statistically excellent but computationally heavy.
 \item \textbf{Regression adjustment is the best ``free'' upgrade.} It costs $0.013\,$s on top of rejection ABC, yet shrinks the $\rho$ CI from $0.39$ to $0.12$ --- a $3\times$ improvement. This is the cheapest single intervention in the report.
 \item \textbf{SMC-ABC sits in the middle.} Its $\rho$ CI ($0.21$) is roughly half of rejection ABC's, but at the cost of a $4\times$ longer runtime. The progressive tolerance schedule worked smoothly (final $\varepsilon = 1.47$) and the effective sample size remained around $900$ throughout, so the method is well-tuned --- it is just inherently more expensive than the post-hoc regression adjustment.
-\item \textbf{ABC-MCMC is the widest.} Its CIs are actually wider than rejection ABC's. With acceptance rate $34\%$ and ESS in the hundreds, the chain is mixing reasonably, but the tolerance ($\varepsilon = 3.01$) is slightly larger than the rejection ABC threshold to keep acceptance reasonable, and that looseness propagates into the posterior. ABC-MCMC is therefore not competitive on this problem; its main advantage --- targeted exploration of the posterior --- is undercut by the need to maintain a generous tolerance.
+\item \textbf{ABC-MCMC is the widest.} Its CIs are actually wider than rejection ABC's. With acceptance rate $34\%$ and ESS in the hundreds, the chain is mixing reasonably, but the tolerance ($\varepsilon = 3.01$) is slightly larger than the rejection ABC threshold to keep acceptance reasonable, and that looseness propagates into the posterior. ABC-MCMC is therefore not competitive on this problem; its main advantage, the targeted exploration of the posterior is undercut by the need to maintain a generous tolerance.
 \end{itemize}
 
 \paragraph{A note on amortisation.} NPE has a property that none of the other methods share: the trained network can be queried for \emph{any} new observed dataset in milliseconds, with no further simulation. If we received a second batch of $40$ replicates tomorrow under the same model, NPE would give us a posterior immediately while every other method would need to redo $\sim 10^4$--$10^6$ simulations. This makes NPE qualitatively different from the classical methods and especially attractive for applications where the same model is fitted repeatedly.
 
 \section{Validation}
 
-The preceding sections established that all six methods agree on point estimates and that NPE produces the tightest posteriors. Two questions remain: (i) are these posteriors \emph{calibrated} --- do they actually contain the true parameters at the claimed coverage level? --- and (ii) how much of NPE's apparent advantage is genuine statistical efficiency versus simply consuming a larger simulation budget?
+The preceding sections established that all six methods agree on point estimates and that NPE produces the tightest posteriors. Two questions remain: (i) are these posteriors \emph{calibrated} --- do they actually contain the true parameters at the claimed coverage level? and (ii) how much of NPE's apparent advantage is genuine statistical efficiency versus simply consuming a larger simulation budget?
 
 \subsection{Synthetic-truth recovery}
 
-To test calibration, we simulate $40$ synthetic replicates from a known ground truth $\theta^* = (\beta = 0.17,\; \gamma = 0.085,\; \rho = 0.30)$, chosen near the posterior medians from the real data. We then run the full inference pipeline --- rejection ABC ($50{,}000$ simulations, $q=1\%$) and NPE (MAF, same $50{,}000$ simulations) --- on this synthetic dataset and check whether the $95\%$ credible intervals cover $\theta^*$.
+To test calibration, we simulate $40$ synthetic replicates from a known ground truth $\theta^* = (\beta = 0.17,\; \gamma = 0.085,\; \rho = 0.30)$, chosen near the posterior medians from the real data. We then run the full inference pipeline, rejection ABC ($50{,}000$ simulations, $q=1\%$) and NPE (MAF, same $50{,}000$ simulations) on this synthetic dataset and check whether the $95\%$ credible intervals cover $\theta^*$.
 
-\begin{table}[htb]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{lccccc}
@@ -285,7 +283,7 @@ $\rho$   & 0.300 & $[0.136,\; 0.503]$ & Yes & $[0.258,\; 0.355]$ & Yes \\
 \label{tab:synthetic_truth}
 \end{table}
 
-\begin{figure}[htb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{../figures/synthetic_truth_recovery.png}
 \caption{Posterior marginals from the synthetic-truth experiment. Dashed red lines mark the true parameter values. Both rejection ABC (blue) and NPE (purple) concentrate around the truth; NPE is substantially more precise.}
@@ -296,9 +294,9 @@ Table~\ref{tab:synthetic_truth} and Figure~\ref{fig:synthetic_truth} confirm tha
 
 \subsection{Budget-matched comparison}
 
-Table~\ref{tab:all_methods} shows that the six methods use very different simulation budgets (from $30{,}000$ to $10^6$). To disentangle statistical efficiency from sheer compute, we compare rejection ABC, SMC-ABC, and NPE each using approximately $50{,}000$ simulator calls. SMC-ABC is run with a budget cap and stops after the last complete generation within the budget (here, $7$ generations consuming ${\sim}50{,}000$ calls).
+Table~\ref{tab:all_methods} shows that the six methods use very different simulation budgets (from $30{,}000$ to $10^6$). To disentangle statistical efficiency from sheer compute, we compare rejection ABC, SMC-ABC, and NPE each using the same $50{,}000$ simulator calls. Rejection ABC and NPE both operate on the identical set of $50{,}000$ prior simulations from the main rejection ABC run; SMC-ABC is run with a budget cap and stops after the last complete generation within the budget (here, $7$ generations consuming ${\sim}65{,}000$ calls).
 
-\begin{table}[htb]
+\begin{table}[H]
 \centering
 \small
 \begin{tabular}{lcccccc}
@@ -306,22 +304,22 @@ Table~\ref{tab:all_methods} shows that the six methods use very different simula
 Method & $\hat\beta$ & $\hat\gamma$ & $\hat\rho$ & $|\text{CI}_\beta|$ & $|\text{CI}_\gamma|$ & $|\text{CI}_\rho|$ \\
 \midrule
 Rejection ABC ($q=1\%$) & 0.173 & 0.087 & 0.308 & 0.140 & 0.060 & 0.352 \\
-SMC-ABC (7 gen)         & 0.170 & 0.085 & 0.305 & 0.117 & 0.051 & 0.300 \\
-NPE (MAF)               & 0.152 & 0.081 & 0.303 & 0.071 & 0.021 & 0.097 \\
+SMC-ABC (7 gen)         & 0.170 & 0.087 & 0.300 & 0.116 & 0.049 & 0.294 \\
+NPE (MAF)               & 0.152 & 0.081 & 0.304 & 0.071 & 0.021 & 0.099 \\
 \bottomrule
 \end{tabular}
-\caption{Budget-matched comparison at $50{,}000$ simulator calls. At equal budget, NPE achieves the tightest posteriors by a wide margin; SMC-ABC improves modestly on rejection ABC.}
+\caption{Budget-matched comparison at ${\sim}50{,}000$ simulator calls. Rejection ABC and NPE use the identical $50{,}000$ simulations from the main run; SMC-ABC consumes ${\sim}65{,}000$ calls due to its iterative resampling. NPE achieves the tightest posteriors by a wide margin.}
 \label{tab:budget_matched}
 \end{table}
 
-\begin{figure}[htb]
+\begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{../figures/budget_matched.png}
-\caption{Marginal posteriors from the budget-matched comparison ($50{,}000$ simulator calls each). NPE (purple) is sharply concentrated; SMC-ABC (orange) is moderately tighter than rejection ABC (blue).}
+\caption{Marginal posteriors from the budget-matched comparison (${\sim}50{,}000$ simulator calls each). NPE (purple) is sharply concentrated; SMC-ABC (orange) is moderately tighter than rejection ABC (blue).}
 \label{fig:budget_matched}
 \end{figure}
 
-At equal budget (Table~\ref{tab:budget_matched}, Figure~\ref{fig:budget_matched}), NPE's $\rho$ CI ($0.097$) is $3.6\times$ narrower than rejection ABC's ($0.352$) and $3.1\times$ narrower than SMC-ABC's ($0.300$). This confirms that NPE's advantage in Table~\ref{tab:all_methods} is genuine statistical efficiency --- it extracts more information per simulation --- rather than an artefact of consuming a larger budget.
+At equal budget (Table~\ref{tab:budget_matched}, Figure~\ref{fig:budget_matched}), NPE's $\rho$ CI ($0.099$) is $3.6\times$ narrower than rejection ABC's ($0.352$) and $3.0\times$ narrower than SMC-ABC's ($0.294$). This confirms that NPE's advantage in Table~\ref{tab:all_methods} is genuine statistical efficiency --- it extracts more information per simulation --- rather than an artefact of consuming a larger budget.
 
 \subsection{Robustness to seed and tuning choices}
 
@@ -329,7 +327,7 @@ To verify that our conclusions are not artefacts of a single random seed or a pa
 
 \section{Conclusion}
 
-We have applied six simulation-based inference methods to the problem of estimating $(\beta, \gamma, \rho)$ in an adaptive-network SIR epidemic model from $40$ observed replicates. The likelihood is intractable because the network co-evolves with the infection state, but the model is cheap to simulate, making SBI a natural framework. Our key findings are:
+We have applied six simulation-based inference methods to the problem of estimating $(\beta, \gamma, \rho)$ in an adaptive-network SIR epidemic model. The likelihood is intractable because the network co-evolves with the infection state, but the model is cheap to simulate, making SBI a natural framework. The key findings are as follows:
 
 \begin{enumerate}[nosep, leftmargin=10pt]
 \item \textbf{Summary statistics design dominates the inference.} The infected fraction time series alone leaves $\beta$ and $\rho$ strongly positively correlated ($\hat r = +0.886$) and the $\rho$ posterior almost as wide as the prior. Adding rewiring statistics reduces the $\rho$ CI width from $0.75$ to $0.40$, and combining all $12$ summaries gives the best overall results.
