@@ -80,49 +80,44 @@ def _remove_edge(adj, deg, i, j):
 def simulate_fast(beta, gamma, rho, N=200, p_edge=0.05, n_infected0=5, T=200, seed=0):
     """Run one replicate of the adaptive-network SIR model.
 
-    Parameters
-    ----------
-    beta : float in [0, 1]
-        Transmission probability. At each time step, each S-I edge
-        transmits the infection independently with probability beta.
-        Higher beta means the disease spreads faster.
-    gamma : float in [0, 1]
-        Recovery probability. At each time step, each infected node
-        recovers independently with probability gamma.
-        Higher gamma means shorter infectious period (on average 1/gamma steps).
-    rho : float in [0, 1]
-        Rewiring probability. At each time step, each S-I edge is
-        rewired independently with probability rho. The susceptible
-        node drops the link to its infected neighbor and connects to
-        a randomly chosen new node instead.
-        Higher rho means more active social distancing behavior.
-    N : int, default=200
-        Number of nodes (individuals) in the network.
-    p_edge : float, default=0.05
-        Probability of an edge between any two nodes in the initial
-        Erdos-Renyi random graph. Expected initial degree is (N-1)*p_edge.
-        With N=200 and p_edge=0.05, the expected degree is about 10.
-    n_infected0 : int, default=5
-        Number of nodes infected at time t=0. These are chosen
-        uniformly at random (without replacement) from all N nodes.
-    T : int, default=200
-        Number of discrete time steps to simulate.
-    seed : int or None
-        Seed for reproducibility of the random number generator. If none, a
-        new random seed is used.
+    Args:
+        beta: float in [0, 1]
+            Transmission probability. At each time step, each S-I edge
+            transmits the infection independently with probability beta.
+            Higher beta means the disease spreads faster.
+        gamma: float in [0, 1]
+            Recovery probability. At each time step, each infected node
+            recovers independently with probability gamma.
+            Higher gamma means shorter infectious period (on average 1/gamma steps).
+        rho: float in [0, 1]
+            Rewiring probability. At each time step, each S-I edge is
+            rewired independently with probability rho. The susceptible
+            node drops the link to its infected neighbor and connects to
+            a randomly chosen new node instead.
+            Higher rho means more active social distancing behavior.
+        N: int, default=200
+            Number of nodes (individuals) in the network.
+        p_edge: float, default=0.05
+            Probability of an edge between any two nodes in the initial
+            Erdos-Renyi random graph. Expected initial degree is (N-1)*p_edge.
+            With N=200 and p_edge=0.05, the expected degree is about 10.
+        n_infected0: int, default=5
+            Number of nodes infected at time t=0. These are chosen
+            uniformly at random (without replacement) from all N nodes.
+        T: int, default=200
+            Number of discrete time steps to simulate.
+        seed: int or None
+            Seed for reproducibility of the random number generator.
 
-    Returns
-    -------
-    infected_fraction : np.ndarray, shape (T+1,)
-        Fraction of the population that is infected at each time step,
-        from t=0 to t=T. Values are in [0, 1].
-    rewire_counts : np.ndarray, shape (T+1,)
-        Number of successful rewiring events at each time step.
-        Always 0 at t=0 (no rewiring before the simulation starts).
-    degree_histogram : np.ndarray, shape (31,)
-        Histogram of node degrees at the final time step t=T.
-        degree_histogram[d] = number of nodes with degree d, for d=0..29.
-        degree_histogram[30] counts all nodes with degree >= 30.
+    Returns:
+        tuple: A tuple containing:
+            - infected_fraction (np.ndarray): Fraction of the population that is
+              infected at each time step, from t=0 to t=T. Values are in [0, 1]. Shape (T+1,).
+            - rewire_counts (np.ndarray): Number of successful rewiring events at each
+              time step. Always 0 at t=0. Shape (T+1,).
+            - degree_histogram (np.ndarray): Histogram of node degrees at the final
+              time step t=T. degree_histogram[d] = number of nodes with degree d, for
+              d=0..29. degree_histogram[30] counts nodes with degree >= 30. Shape (31,).
     """
     np.random.seed(seed)
 
@@ -321,6 +316,20 @@ def simulate(
     n_infected0: int = 5, 
     T: int = 200, 
 ):
-    """Wrapper with numpy Generator interface."""
+    """Wrapper for the adaptive-network SIR model simulator using the numpy Generator interface.
+
+    Args:
+        beta: Transmission probability.
+        gamma: Recovery probability.
+        rho: Rewiring probability.
+        rng: A NumPy random number generator instance.
+        N: Number of nodes. Defaults to 200.
+        p_edge: Initial edge probability. Defaults to 0.05.
+        n_infected0: Initial number of infected nodes. Defaults to 5.
+        T: Number of time steps. Defaults to 200.
+
+    Returns:
+        tuple: The infected fraction, rewiring counts, and degree histogram arrays.
+    """
     seed = int(rng.integers(0, 2**31))
     return simulate_fast(beta, gamma, rho, N, p_edge, n_infected0, T, seed)

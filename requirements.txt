@@ -4,3 +4,7 @@ pandas==3.0.2
 matplotlib==3.10.8
 seaborn==0.13.2
 scipy==1.17.1
+corner==2.2.3
+ipykernel==7.2.0
+numba>=0.59.0
+torch>=2.0.0

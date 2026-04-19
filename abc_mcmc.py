@@ -1,14 +1,36 @@
+"""MCMC Approximate Bayesian Computation (ABC-MCMC).
+
+This module implements the ABC-MCMC algorithm (Marjoram et al. 2003) for
+sampling from the approximate posterior distribution.
+"""
+
 import numpy as np
 from summary_statistic import SummaryStatistic, SummarySubset
 from abc_utils import PriorSampler, SummaryStatisticNormalizer
 from simulator import simulate
 
 class MCMCABC:
+    """Markov Chain Monte Carlo Approximate Bayesian Computation (ABC-MCMC).
+
+    This class implements the ABC-MCMC algorithm for sampling from the approximate 
+    posterior distribution of parameters given observed summary statistics.
+    """
+
     def __init__(self,
                  rng: np.random.Generator,
                  normalizer: SummaryStatisticNormalizer,
                  prior_sampler: PriorSampler,
                  verbose: bool = False):
+        """Initializes the MCMCABC runner.
+
+        Args:
+            rng: A NumPy random number generator instance.
+            normalizer: A normalizer for computing distances between summary
+                statistics.
+            prior_sampler: An object to sample from the prior distribution and
+                evaluate prior bounds.
+            verbose: If True, prints progress information during the run.
+        """
         self.rng = rng
         self.normalizer = normalizer
         self.prior_sampler = prior_sampler
@@ -22,6 +44,24 @@ class MCMCABC:
             proposal_cov: np.ndarray,
             subset: SummarySubset = SummarySubset.ALL,
             n_reps_per_sim: int = 1):
+        """Runs the ABC-MCMC algorithm.
+
+        Args:
+            s_obs: The observed summary statistics.
+            n_iter: The number of MCMC iterations to run.
+            epsilon: The distance threshold for accepting proposed parameters.
+            theta_init: The initial parameter values to start the Markov chain.
+            proposal_cov: The covariance matrix of the Gaussian random walk
+                proposal distribution.
+            subset: The subset of summary statistics to use for distance
+                computation. Defaults to SummarySubset.ALL.
+            n_reps_per_sim: The number of simulation replicates to run for each
+                parameter evaluation to reduce simulator noise. Defaults to 1.
+
+        Returns:
+            tuple: A tuple containing the Markov chain of parameter samples,
+                the corresponding distances, and the overall acceptance rate.
+        """
         
         chain = np.zeros((n_iter, 3))
         dist_chain = np.zeros(n_iter)
@@ -73,7 +113,17 @@ class MCMCABC:
 
     @staticmethod
     def effective_sample_size(chain: np.ndarray) -> np.ndarray:
-        """Estimate ESS from autocorrelation for each parameter dimension."""
+        """Estimates the effective sample size (ESS) for each parameter dimension.
+
+        The ESS is estimated using the autocorrelation function of the chain,
+        summing the autocorrelations until they drop below 0.05.
+
+        Args:
+            chain: The MCMC chain of samples, typically of shape (n_samples, n_dimensions).
+
+        Returns:
+            np.ndarray: An array of estimated effective sample sizes for each dimension.
+        """
         n, d = chain.shape
         ess = np.zeros(d)
         for k in range(d):

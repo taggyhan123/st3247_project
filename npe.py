@@ -1,3 +1,9 @@
+"""Neural Posterior Estimation (NPE).
+
+This module wraps the Neural Posterior Estimation functionality from the `sbi`
+package to learn an amortised posterior distribution.
+"""
+
 import numpy as np
 import torch
 
@@ -7,13 +13,22 @@ from summary_statistic import SummaryStatistic, SummarySubset
 from abc_utils import PriorSampler
 
 class NeuralPosteriorEstimation:
-    """
-    Neural Posterior Estimation (NPE) using the `sbi` package.
+    """Neural Posterior Estimation (NPE) using the `sbi` package.
+
+    This class trains a conditional density estimator (e.g., a Masked Autoregressive Flow)
+    to approximate the posterior distribution given simulated parameter-summary pairs.
     """
     def __init__(self,
                  rng: np.random.Generator,
                  prior_sampler: PriorSampler,
                  verbose: bool = False):
+        """Initializes the Neural Posterior Estimation runner.
+
+        Args:
+            rng: A NumPy random number generator instance.
+            prior_sampler: An object to provide the prior distribution bounds.
+            verbose: If True, prints training and sampling progress information.
+        """
         self.rng = rng
         self.prior_sampler = prior_sampler
         self.verbose = verbose
@@ -25,6 +40,21 @@ class NeuralPosteriorEstimation:
             n_posterior_samples: int = 10_000,
             density_estimator: str = "maf",
             subset: SummarySubset = SummarySubset.ALL):
+        """Trains the NPE model and samples from the approximated posterior.
+
+        Args:
+            thetas: An array of simulated parameter samples of shape (n_sims, n_params).
+            summaries: An array of corresponding summary statistics of shape (n_sims, n_stats).
+            s_obs: The observed summary statistics.
+            n_posterior_samples: The number of samples to draw from the trained posterior.
+            density_estimator: The type of neural density estimator to use (e.g., "maf").
+            subset: The subset of summary statistics to use. Defaults to ALL.
+
+        Returns:
+            tuple: A tuple containing:
+                - samples (np.ndarray): Draws from the approximate posterior.
+                - posterior (sbi.inference.posteriors.DirectPosterior): The trained posterior object.
+        """
         
         seed = int(self.rng.integers(0, 2**31))
         torch.manual_seed(seed)
