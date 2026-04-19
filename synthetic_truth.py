@@ -25,7 +25,7 @@ ACCEPTANCE_QUANTILE = 0.01
 N_PILOT = 2000
 
 
-def generate_synthetic_observed(theta_true, n_replicates, rng):
+def generate_synthetic_observed(theta_true: np.ndarray, n_replicates: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Simulate n_replicates datasets from theta_true."""
     inf_list, rew_list, deg_list = [], [], []
     for _ in range(n_replicates):
@@ -36,7 +36,7 @@ def generate_synthetic_observed(theta_true, n_replicates, rng):
     return np.array(inf_list), np.array(rew_list), np.array(deg_list)
 
 
-def run_pilot(prior_sampler, rng):
+def run_pilot(prior_sampler: PriorSampler, rng: np.random.Generator) -> SummaryStatisticNormalizer:
     """Run pilot simulations for MAD normaliser."""
     pilot_summaries = []
     p_betas, p_gammas, p_rhos = prior_sampler.sample(N_PILOT)
@@ -46,7 +46,7 @@ def run_pilot(prior_sampler, rng):
     return SummaryStatisticNormalizer(pilot_summaries)
 
 
-def check_coverage(samples, theta_true):
+def check_coverage(samples: np.ndarray, theta_true: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return (covered: bool[3], ci_lo: float[3], ci_hi: float[3])."""
     covered = []
     ci_lo, ci_hi = [], []
@@ -58,7 +58,7 @@ def check_coverage(samples, theta_true):
     return np.array(covered), np.array(ci_lo), np.array(ci_hi)
 
 
-def plot_recovery(rej_samples, npe_samples, theta_true, rej_coverage, npe_coverage):
+def plot_recovery(rej_samples: np.ndarray, npe_samples: np.ndarray, theta_true: np.ndarray, rej_coverage: np.ndarray, npe_coverage: np.ndarray) -> None:
     """1x3 figure: marginal posteriors with true value marked."""
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
@@ -85,7 +85,7 @@ def plot_recovery(rej_samples, npe_samples, theta_true, rej_coverage, npe_covera
     plt.close(fig)
 
 
-def main():
+def main() -> None:
     rng = np.random.default_rng(RNG_SEED)
 
     # Warm up Numba

@@ -7,6 +7,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import corner
+from typing import Any, Mapping
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -15,7 +16,7 @@ from abc_utils import SummaryStatisticNormalizer
 from summary_statistic import SummaryStatistic, SummarySubset
 
 
-def plot_rejection_abc_corner(acc_rej, param_labels):
+def plot_rejection_abc_corner(acc_rej: np.ndarray, param_labels: list[str]) -> None:
     """
     Figure: Rejection ABC corner plot
     """
@@ -33,7 +34,7 @@ def plot_rejection_abc_corner(acc_rej, param_labels):
     print("Saved figures/rejection_abc_corner.png")
 
 
-def plot_summary_stats_comparison(thetas, summaries, mads, s_obs, param_labels):
+def plot_summary_stats_comparison(thetas: np.ndarray, summaries: np.ndarray, mads: np.ndarray, s_obs: np.ndarray, param_labels: list[str]) -> None:
     """
     Figure: Summary statistics comparison
     """
@@ -112,7 +113,15 @@ def plot_summary_stats_comparison(thetas, summaries, mads, s_obs, param_labels):
     print("Saved figures/summary_stats_comparison.png")
 
 
-def plot_all_methods_comparison(acc_rej, reg_data, mcmc_data, smc_data, sl_data, npe_data, param_labels):
+def plot_all_methods_comparison(
+    acc_rej: np.ndarray,
+    reg_data: Mapping[str, Any],
+    mcmc_data: Mapping[str, Any],
+    smc_data: Mapping[str, Any],
+    sl_data: Mapping[str, Any],
+    npe_data: Mapping[str, Any],
+    param_labels: list[str]
+) -> None:
     """
     Figure: All methods comparison
     """
@@ -149,7 +158,7 @@ def plot_all_methods_comparison(acc_rej, reg_data, mcmc_data, smc_data, sl_data,
     print("Saved figures/all_methods_comparison.png")
 
 
-def main():
+def main() -> None:
     os.makedirs('figures', exist_ok=True)
     plt.rcParams['figure.dpi'] = 120
 

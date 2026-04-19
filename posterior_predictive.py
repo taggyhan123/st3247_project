@@ -16,7 +16,7 @@ RNG_SEED = 42
 N_DRAWS = 200
 
 
-def sample_posterior_predictive(samples, n_draws, rng):
+def sample_posterior_predictive(samples: np.ndarray, n_draws: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Simulate from posterior parameter draws."""
     idx = rng.choice(len(samples), size=n_draws, replace=False)
     drawn = samples[idx]
@@ -34,8 +34,8 @@ def sample_posterior_predictive(samples, n_draws, rng):
     return pred_inf, pred_rew, pred_deg
 
 
-def plot_posterior_predictive(obs_inf, obs_rew, obs_deg,
-                              pred_inf, pred_rew, pred_deg):
+def plot_posterior_predictive(obs_inf: np.ndarray, obs_rew: np.ndarray, obs_deg: np.ndarray,
+                              pred_inf: np.ndarray, pred_rew: np.ndarray, pred_deg: np.ndarray) -> None:
     """Three-panel figure: observed data + posterior predictive envelope."""
     fig, axes = plt.subplots(1, 3, figsize=(16, 4.5))
     t = np.arange(201)
@@ -97,7 +97,7 @@ def plot_posterior_predictive(obs_inf, obs_rew, obs_deg,
     plt.close(fig)
 
 
-def main():
+def main() -> None:
     rng = np.random.default_rng(RNG_SEED)
 
     # Warm up Numba

@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import time
+from typing import Any
 
 from simulator import simulate_fast
 from summary_statistic import (
@@ -27,7 +28,7 @@ BUDGET = 50_000
 PARAM_NAMES = [r'$\beta$', r'$\gamma$', r'$\rho$']
 
 
-def print_results(results):
+def print_results(results: dict[str, Any]) -> None:
     """Print comparison table."""
     print(f"\n{'Method':>25s}  {'beta_med':>9s} {'gamma_med':>10s} {'rho_med':>8s}  "
           f"{'beta_95w':>9s} {'gamma_95w':>10s} {'rho_95w':>8s}  {'N_sims':>8s}")
@@ -43,7 +44,7 @@ def print_results(results):
               f'{widths[0]:>9.4f} {widths[1]:>10.4f} {widths[2]:>8.4f}  {info["n_sims"]:>8,}')
 
 
-def plot_budget_matched(results):
+def plot_budget_matched(results: dict[str, Any]) -> None:
     """1x3 marginal histograms for budget-matched methods."""
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     colors = {'Rejection ABC': 'tab:blue', 'SMC-ABC': 'tab:orange', 'NPE': 'tab:purple'}
@@ -67,7 +68,7 @@ def plot_budget_matched(results):
     plt.close(fig)
 
 
-def main():
+def main() -> None:
     rng = np.random.default_rng(42)
 
     # Warm up Numba
