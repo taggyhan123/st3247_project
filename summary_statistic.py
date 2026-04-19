@@ -78,7 +78,7 @@ class SummaryStatistic:
             tuple: A tuple containing 5 statistics:
                 - s1 (float): Peak infected fraction.
                 - s2 (float): Normalized time to peak.
-                - s3 (float): Mean infected fraction (AUC).
+                - s3 (float): Mean infected fraction (equivalently, normalized AUC).
                 - s4 (float): Normalized epidemic duration.
                 - s5 (float): Epidemic breadth.
         """
@@ -203,7 +203,7 @@ class SummaryStatistic:
                 Defaults to SummarySubset.ALL.
         """
         all_names = [
-            "Peak infected frac", "Time to peak (norm)", "Mean infected frac",
+            "Peak infected frac", "Time to peak (norm)", "Mean infected frac / norm AUC",
             "Epidemic duration (norm)", "Epidemic breadth", "Total rewires",
             "Peak rewire count", "Time of peak rewire (norm)", "Rewire autocorr lag-1",
             "Mean final degree", "Var final degree", "Frac isolated nodes",

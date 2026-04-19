@@ -1,7 +1,7 @@
 """
 Load observed data CSV files.
 
-Data directory: ../data/ relative to this file.
+Data directory: ./data/ relative to this file.
 """
 
 import pandas as pd

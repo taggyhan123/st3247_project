@@ -9,6 +9,7 @@ Ensure you have Python 3.9+ installed. Install the required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
+`torch` and `sbi` can run on CPU; a GPU is optional and not required for this project.
 
 ### Running the Experiments
 To run the entire suite of experiments, execute the main orchestrator script:
@@ -20,6 +21,8 @@ This script will sequentially:
 2. Run the budget-matched comparison.
 3. Run the synthetic truth recovery experiment.
 4. Generate all plots and save them in the `figures/` directory.
+
+After a successful first run, you should see cached `.npz` outputs in `results/` and the comparison plots in `figures/`.
 
 ### Caching
 To avoid redundant, expensive simulation calls, all intermediate results are automatically cached as `.npz` files in the `results/` directory. 
