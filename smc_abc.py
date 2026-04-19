@@ -188,7 +188,6 @@ class SMCABC:
                 attempts = 0
                 while not accepted and attempts < 1000:
                     attempts += 1
-                    n_sim_total += 1
 
                     # Resample: pick a particle from previous generation
                     idx = self.rng.choice(n_particles, p=prev_weights)
@@ -198,6 +197,8 @@ class SMCABC:
                     # Prior check
                     if not PriorSampler.in_prior(theta_prop):
                         continue
+                    
+                    n_sim_total += n_reps_per_sim
 
                     # Simulate
                     rep_stats = [SummaryStatistic(*simulate(*theta_prop, rng=self.rng)) 

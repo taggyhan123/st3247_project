@@ -16,7 +16,7 @@ To run the entire suite of experiments, execute the main orchestrator script:
 python main.py
 ```
 This script will sequentially:
-1. Run all 6 core inference algorithms and cache their results.
+1. Run all 6 core inference algorithms and cache their results in the `results/` directory.
 2. Run the budget-matched comparison.
 3. Run the synthetic truth recovery experiment.
 4. Generate all plots and save them in the `figures/` directory.
