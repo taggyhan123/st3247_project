@@ -1,8 +1,8 @@
 # ST3247 Project: Parameter Inference for Epidemic Models
 
-This repository contains the codebase for parameter inference on network epidemic models. It compares various Approximate Bayesian Computation (ABC) methods, Synthetic Likelihood, and Neural Posterior Estimation (NPE) to infer the spreading parameters ($\beta$, $\gamma$, $\rho$).
+This repository contains our codebase for parameter inference on network epidemic models for the ST3247 Project. It compares various Approximate Bayesian Computation (ABC) methods, Synthetic Likelihood, and Neural Posterior Estimation (NPE) to infer the spreading parameters ($\beta$, $\gamma$, $\rho$).
 
-## 🚀 How to Use
+## How to Use
 
 ### Prerequisites
 Ensure you have Python 3.8+ installed. Install the required dependencies:
@@ -26,7 +26,7 @@ To avoid redundant, expensive simulation calls, all intermediate results are aut
 * If a script requires data (e.g., `make_figures.py`), it will load the cached files instantly.
 * If you want to force a clean re-run of any experiment from scratch, simply delete the corresponding `.npz` file in the `results/` folder.
 
-## 📂 What Each Module Does
+## What Each Module Does
 
 ### Orchestration & Experiments
 * **`main.py`**: The central orchestrator. Runs core models, aggregates metrics into a comparison table, and triggers the other experiment scripts.

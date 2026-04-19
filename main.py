@@ -38,6 +38,12 @@ import make_figures
 RNG_SEED = 6769
 
 class ResultAggregator:
+    """Collects and compares posterior samples from all inference methods.
+
+    Stores accepted samples, weights, timing, and simulation counts for each
+    method, and prints a unified comparison table of medians, 95% CI widths,
+    and credible intervals.
+    """
     def __init__(self):
         self.methods = {}
 

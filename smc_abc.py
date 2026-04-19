@@ -211,12 +211,15 @@ class SMCABC:
                         new_distances[i] = d
 
                         # Weight: prior(θ) / sum_j w_j^{t-1} K(θ | θ_j^{t-1})
-                        # Assuming uniform prior, prior(θ) is proportional to 1.
-                        prior_val = 1.0 
+                        # Under a uniform prior, prior(θ) is constant and cancels
+                        # after weight normalisation. The Gaussian kernel normalisation
+                        # constant (1/sqrt((2π)^d |Σ|)) is identical for all j, so it
+                        # also cancels in the ratio.
+                        prior_val = 1.0
                         kernel_sum = 0.0
                         for j in range(n_particles):
                             diff = theta_prop - prev_particles[j]
-                            # Gaussian kernel density
+                            # Unnormalised Gaussian kernel: exp(-0.5 * Δθ^T Σ^{-1} Δθ)
                             exponent = -0.5 * diff @ np.linalg.solve(cov, diff)
                             kernel_sum += prev_weights[j] * np.exp(exponent)
 

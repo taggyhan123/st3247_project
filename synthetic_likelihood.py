@@ -129,6 +129,8 @@ class SyntheticLikelihoodMCMC:
 
         er = cls.robust_vcov(sY)
 
+        # Log N(s_obs | μ, Σ) = -0.5*(s-μ)^T Σ^{-1} (s-μ) - 0.5*log|Σ| + const.
+        # The constant -d/2*log(2π) is omitted as it cancels in the MH ratio.
         residual = er["E"] @ (s_obs - er["mY"])
         rss = np.sum(residual ** 2)
         ll = -rss / 2.0 - er["half_ldet_V"]
