@@ -30,6 +30,11 @@ from abc_utils import (
     SummaryStatisticNormalizer
 )
 
+# Orchestration modules
+import budget_matched
+import synthetic_truth
+import make_figures
+
 RNG_SEED = 6769
 
 class ResultAggregator:
@@ -435,4 +440,16 @@ def npe_run(rng: np.random.Generator,
     return samples
 
 if __name__ == "__main__":
+    print(">>> RUNNING MAIN EXPERIMENTS <<<")
     main()
+    
+    print("\n\n>>> RUNNING BUDGET-MATCHED EXPERIMENTS <<<")
+    budget_matched.main()
+    
+    print("\n\n>>> RUNNING SYNTHETIC TRUTH EXPERIMENTS <<<")
+    synthetic_truth.main()
+    
+    print("\n\n>>> GENERATING FIGURES <<<")
+    make_figures.main()
+    
+    print("\n>>> ALL TASKS COMPLETED SUCCESSFULLY <<<")

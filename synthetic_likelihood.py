@@ -1,3 +1,9 @@
+"""Synthetic Likelihood MCMC algorithm.
+
+This module implements the Synthetic Likelihood method for simulation-based
+inference using a robust covariance estimator.
+"""
+
 import numpy as np
 from scipy.linalg import solve_triangular
 
@@ -6,20 +12,40 @@ from abc_utils import PriorSampler
 from simulator import simulate
 
 class SyntheticLikelihoodMCMC:
-    """
-    Synthetic Likelihood (Wood, 2010) MCMC.
+    """Synthetic Likelihood (Wood, 2010) Markov Chain Monte Carlo.
+
+    This class implements the Synthetic Likelihood approach, which replaces the
+    standard ABC distance check with an evaluation of an explicit Gaussian
+    likelihood approximated from multiple forward simulations at each step.
     """
     def __init__(self,
                  rng: np.random.Generator,
                  prior_sampler: PriorSampler,
                  verbose: bool = False):
+        """Initializes the Synthetic Likelihood MCMC runner.
+
+        Args:
+            rng: A NumPy random number generator instance.
+            prior_sampler: An object to sample from and evaluate the prior.
+            verbose: If True, prints progress information during the run.
+        """
         self.rng = rng
         self.prior_sampler = prior_sampler
         self.verbose = verbose
 
     @staticmethod
     def robust_vcov(sY: np.ndarray, alpha: float = 2.0, beta: float = 1.25) -> dict:
-        """Robust covariance estimation using Campbell's method with QR preconditioning."""
+        """Computes a robust covariance estimation using Campbell's method with QR preconditioning.
+
+        Args:
+            sY: The simulated summary statistics matrix of shape (n_stats, n_reps).
+            alpha: The tuning parameter for Campbell's weights distance threshold.
+            beta: The decay parameter for Campbell's weights.
+
+        Returns:
+            dict: A dictionary containing the preconditioning matrix 'E', the half
+                log determinant 'half_ldet_V', and the weighted mean 'mY'.
+        """
         n_stats, n_reps = sY.shape
 
         # Step 1: initial mean and preconditioning
@@ -84,7 +110,16 @@ class SyntheticLikelihoodMCMC:
 
     @classmethod
     def synthetic_log_likelihood(cls, s_obs: np.ndarray, sY: np.ndarray) -> float:
-        """Evaluate the log synthetic likelihood."""
+        """Evaluates the log synthetic likelihood.
+
+        Args:
+            s_obs: The observed summary statistics array of shape (n_stats,).
+            sY: The simulated summary statistics matrix of shape (n_stats, n_reps).
+
+        Returns:
+            float: The evaluated log synthetic likelihood, or -np.inf if not
+                enough replicates are provided.
+        """
         # Remove replicates with non-finite values
         finite_mask = np.all(np.isfinite(sY), axis=0)
         sY = sY[:, finite_mask]
@@ -105,7 +140,17 @@ class SyntheticLikelihoodMCMC:
                                    s_obs_array: np.ndarray, 
                                    n_sim_per_eval: int, 
                                    subset: SummarySubset) -> float:
-        """Simulates replicates at theta and evaluates the synthetic likelihood against observations."""
+        """Simulates replicates at theta and evaluates the synthetic likelihood against observations.
+
+        Args:
+            theta: The parameter values to evaluate.
+            s_obs_array: The observed summary statistics array.
+            n_sim_per_eval: The number of simulation replicates to draw for covariance estimation.
+            subset: The subset of summary statistics to use.
+
+        Returns:
+            float: The estimated log likelihood at theta.
+        """
         rep_stats = [SummaryStatistic(*simulate(*theta, rng=self.rng)) 
                      for _ in range(n_sim_per_eval)]
         # Summaries are (n_reps, n_stats), transpose to (n_stats, n_reps)
@@ -119,6 +164,22 @@ class SyntheticLikelihoodMCMC:
             theta_init: np.ndarray,
             proposal_cov: np.ndarray,
             subset: SummarySubset = SummarySubset.ALL):
+        """Runs the Synthetic Likelihood MCMC algorithm.
+
+        Args:
+            s_obs: The observed summary statistics.
+            n_iter: The number of MCMC iterations to run.
+            n_sim_per_eval: The number of simulations per parameter evaluation.
+            theta_init: The initial parameter values.
+            proposal_cov: The covariance matrix of the Gaussian proposal distribution.
+            subset: The subset of summary statistics to use. Defaults to ALL.
+
+        Returns:
+            tuple: A tuple containing:
+                - chain (np.ndarray): The sequence of accepted parameter samples.
+                - ll_chain (np.ndarray): The sequence of log-likelihood values.
+                - acceptance_rate (float): The overall acceptance rate.
+        """
         
         s_obs_array = s_obs.get_summaries(subset)
         

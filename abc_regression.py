@@ -20,10 +20,16 @@ Reference:
 import numpy as np
 
 
-def epanechnikov_weights(distances):
-    """Epanechnikov kernel weights based on normalised distances.
+def epanechnikov_weights(distances: np.ndarray) -> np.ndarray:
+    """Computes Epanechnikov kernel weights based on normalized distances.
 
-    w_i = 1 - (d_i / max(d))^2,  clipped to [0, 1].
+    The weights are calculated as w_i = 1 - (d_i / max(d))^2 and clipped to [0, 1].
+
+    Args:
+        distances: An array of distances between simulated and observed summaries.
+
+    Returns:
+        np.ndarray: An array of computed weights for each distance.
     """
     d_max = np.max(distances)
     if d_max == 0:
@@ -33,18 +39,17 @@ def epanechnikov_weights(distances):
     return np.clip(w, 0, None)
 
 
-def weighted_least_squares(X, y, w):
-    """Weighted least squares: solve (X^T W X) beta = X^T W y.
+def weighted_least_squares(X: np.ndarray, y: np.ndarray, w: np.ndarray) -> np.ndarray:
+    """Solves the weighted least squares problem: (X^T W X) beta = X^T W y.
 
-    Parameters
-    ----------
-    X : ndarray (n, p)  — design matrix (with intercept column)
-    y : ndarray (n,)    — response
-    w : ndarray (n,)    — weights
+    Args:
+        X: The design matrix of shape (n_samples, n_features), including the
+            intercept column.
+        y: The response vector of shape (n_samples,).
+        w: The weights vector of shape (n_samples,).
 
-    Returns
-    -------
-    beta : ndarray (p,)
+    Returns:
+        np.ndarray: The estimated coefficients beta of shape (n_features,).
     """
     W = np.diag(w)
     XtW = X.T @ W
@@ -52,22 +57,24 @@ def weighted_least_squares(X, y, w):
     return beta
 
 
-def regression_adjust(thetas, summaries, distances, s_obs):
-    """Apply Beaumont et al. (2002) regression adjustment.
+def regression_adjust(thetas: np.ndarray, summaries: np.ndarray,
+                      distances: np.ndarray, s_obs: np.ndarray) -> np.ndarray:
+    """Applies Beaumont et al. (2002) regression adjustment to accepted samples.
 
-    Parameters
-    ----------
-    thetas : ndarray (n, 3)       — accepted parameter samples
-    summaries : ndarray (n, d)    — corresponding summary statistics
-    distances : ndarray (n,)      — distances to observed summaries
-    s_obs : ndarray (d,)          — observed summary statistics
+    Fits a local weighted linear regression within the accepted region to correct
+    for the residual gap between simulated and observed summaries.
 
-    Returns
-    -------
-    adjusted_thetas : ndarray (n, 3)
+    Args:
+        thetas: The accepted parameter samples of shape (n_samples, n_params).
+        summaries: The corresponding summary statistics of shape (n_samples, n_stats).
+        distances: The distances to the observed summaries of shape (n_samples,).
+        s_obs: The observed summary statistics of shape (n_stats,).
+
+    Returns:
+        np.ndarray: The regression-adjusted parameter samples of shape
+            (n_samples, n_params).
     """
     n, n_params = thetas.shape
-    n_stats = summaries.shape[1]
 
     weights = epanechnikov_weights(distances)
 
