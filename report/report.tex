@@ -5,7 +5,7 @@
 \usepackage{amsfonts, amsmath}
 \usepackage{graphicx}
 \usepackage{libertine}
-\usepackage[left=2cm, right=2cm, top=2cm, bottom=2cm]{geometry}
+\usepackage[left=1.5cm, right=1.5cm, top=1cm, bottom=1cm]{geometry}
 \usepackage{booktabs}
 \usepackage{float}
 \usepackage[section]{placeins}
@@ -18,18 +18,19 @@
     citecolor = blue,
     anchorcolor = blue}
 \urlstyle{same}
+\setlength{\bibsep}{0pt}
+\usepackage[compact]{titlesec}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
 
 % 1. Move the title up (smaller top margin)
 \begin{center}
-    \vspace*{-1cm} 
     {\huge \textbf{ST3247 SBI Final Report}} \\
     \vspace{0.5cm}
 \end{center}
 
-\noindent {\bf Github Repository:} \href{https://github.com/chongsun2002/st3247_project/tree/chongsun-changes}{chongsun2002/st3247\_project} (this goes to a branch. it is not a mistake)
+\noindent {\bf Github Repository:} \href{changes}{https://github.com/taggyhan123/st3247_project}
 
 \noindent {\bf Group Composition:}
 \begin{enumerate}[nosep, leftmargin=10pt]
@@ -206,7 +207,7 @@ This approximate likelihood is then explored by a Metropolis--Hastings random wa
 
 \subsection{Neural Posterior Estimation}
 
-Neural Posterior Estimation (NPE) \citep{papamakarios2016fast, greenberg2019automatic} trains a conditional density estimator $q_\phi(\theta \mid S)$ --- here a Masked Autoregressive Flow (MAF) \citep{papamakarios2017masked} --- on the joint $(\theta, S)$ samples produced by the prior simulator. A MAF is a normalising flow that transforms a simple base distribution (a standard Gaussian) into a complex target through a stack of autoregressive affine layers: each layer predicts the scale and shift for dimension~$i$ using only dimensions $1,\dots,i{-}1$, which keeps the Jacobian triangular and makes the density exactly tractable to evaluate. This expressiveness is important here because the $(\beta,\gamma,\rho)$ posterior exhibits strong correlations --- especially the $\beta$--$\rho$ ridge identified in Section~\ref{sec:summaries} --- and non-Gaussian shape that a simple parametric family (e.g.\ a multivariate Gaussian) would miss. Training minimises the negative log-likelihood of $\theta_i$ given $S_i$ over the simulated pairs:
+Neural Posterior Estimation (NPE) \citep{papamakarios2016fast, greenberg2019automatic} trains a neural network to recognize the patterns required to map observed samples back to their underlying parameters. It trains a conditional density estimator $q_\phi(\theta \mid S)$ --- here a Masked Autoregressive Flow (MAF) \citep{papamakarios2017masked} --- on the joint $(\theta, S)$ samples produced by the prior simulator. A MAF is a normalising flow that transforms a simple base distribution (a standard Gaussian) into a complex target through a stack of autoregressive affine layers: each layer predicts the scale and shift for dimension~$i$ using only dimensions $1,\dots,i{-}1$, which keeps the Jacobian triangular and makes the density exactly tractable to evaluate. This expressiveness is important here because the $(\beta,\gamma,\rho)$ posterior exhibits strong correlations --- especially the $\beta$--$\rho$ ridge identified in Section~\ref{sec:summaries} --- and non-Gaussian shape that a simple parametric family (e.g.\ a multivariate Gaussian) would miss. Training minimises the negative log-likelihood of $\theta_i$ given $S_i$ over the simulated pairs:
 \begin{equation}
 \mathcal{L}(\phi) = -\frac{1}{N}\sum_{i=1}^{N} \log q_\phi(\theta_i \mid S_i).
 \end{equation}
@@ -294,7 +295,7 @@ Table~\ref{tab:synthetic_truth} and Figure~\ref{fig:synthetic_truth} confirm tha
 
 \subsection{Budget-matched comparison}
 
-Table~\ref{tab:all_methods} shows that the six methods use very different simulation budgets (from $30{,}000$ to $10^6$). To disentangle statistical efficiency from sheer compute, we compare rejection ABC, SMC-ABC, and NPE each using the same $50{,}000$ simulator calls. Rejection ABC and NPE both operate on the identical set of $50{,}000$ prior simulations from the main rejection ABC run; SMC-ABC is run with a budget cap and stops after the last complete generation within the budget (here, $7$ generations consuming ${\sim}65{,}000$ calls).
+Table~\ref{tab:all_methods} shows that the six methods use very different simulation budgets (from $30{,}000$ to $10^6$). To disentangle statistical efficiency from sheer compute, we compare rejection ABC, SMC-ABC, and NPE each using approximately $50{,}000$ simulator calls. SMC-ABC is run with a target budget of 50,000 calls. Because the algorithm requires a complete population of particles to compute the next generation's weights, it stops after completing the generation that crosses the budget.
 
 \begin{table}[H]
 \centering
@@ -304,22 +305,22 @@ Table~\ref{tab:all_methods} shows that the six methods use very different simula
 Method & $\hat\beta$ & $\hat\gamma$ & $\hat\rho$ & $|\text{CI}_\beta|$ & $|\text{CI}_\gamma|$ & $|\text{CI}_\rho|$ \\
 \midrule
 Rejection ABC ($q=1\%$) & 0.173 & 0.087 & 0.308 & 0.140 & 0.060 & 0.352 \\
-SMC-ABC (7 gen)         & 0.170 & 0.087 & 0.300 & 0.116 & 0.049 & 0.294 \\
-NPE (MAF)               & 0.152 & 0.081 & 0.304 & 0.071 & 0.021 & 0.099 \\
+SMC-ABC (7 gen)         & 0.170 & 0.085 & 0.305 & 0.117 & 0.051 & 0.300 \\
+NPE (MAF)               & 0.152 & 0.081 & 0.303 & 0.071 & 0.021 & 0.097 \\
 \bottomrule
 \end{tabular}
-\caption{Budget-matched comparison at ${\sim}50{,}000$ simulator calls. Rejection ABC and NPE use the identical $50{,}000$ simulations from the main run; SMC-ABC consumes ${\sim}65{,}000$ calls due to its iterative resampling. NPE achieves the tightest posteriors by a wide margin.}
+\caption{Budget-matched comparison at $50{,}000$ simulator calls. At equal budget, NPE achieves the tightest posteriors by a wide margin; SMC-ABC improves modestly on rejection ABC.}
 \label{tab:budget_matched}
 \end{table}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{../figures/budget_matched.png}
-\caption{Marginal posteriors from the budget-matched comparison (${\sim}50{,}000$ simulator calls each). NPE (purple) is sharply concentrated; SMC-ABC (orange) is moderately tighter than rejection ABC (blue).}
+\caption{Marginal posteriors from the budget-matched comparison ($50{,}000$ simulator calls each). NPE (purple) is sharply concentrated; SMC-ABC (orange) is moderately tighter than rejection ABC (blue).}
 \label{fig:budget_matched}
 \end{figure}
 
-At equal budget (Table~\ref{tab:budget_matched}, Figure~\ref{fig:budget_matched}), NPE's $\rho$ CI ($0.099$) is $3.6\times$ narrower than rejection ABC's ($0.352$) and $3.0\times$ narrower than SMC-ABC's ($0.294$). This confirms that NPE's advantage in Table~\ref{tab:all_methods} is genuine statistical efficiency --- it extracts more information per simulation --- rather than an artefact of consuming a larger budget.
+At equal budget (Table~\ref{tab:budget_matched}, Figure~\ref{fig:budget_matched}), NPE's $\rho$ CI ($0.097$) is $3.6\times$ narrower than rejection ABC's ($0.352$) and $3.1\times$ narrower than SMC-ABC's ($0.300$). This confirms that NPE's advantage in Table~\ref{tab:all_methods} is genuine statistical efficiency --- it extracts more information per simulation, rather than an artefact of consuming a larger budget.
 
 \subsection{Robustness to seed and tuning choices}
 
