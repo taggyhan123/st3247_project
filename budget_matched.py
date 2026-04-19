@@ -85,8 +85,7 @@ def main() -> None:
     s_obs_array = data['s_obs']
 
     # Reconstruct normalizer and s_obs from saved data
-    normalizer = SummaryStatisticNormalizer.__new__(SummaryStatisticNormalizer)
-    normalizer.mads = mads
+    normalizer = SummaryStatisticNormalizer.from_mads(mads)
     s_obs = SummaryStatistic(precomputed_summaries=s_obs_array)
 
     prior_sampler = PriorSampler(rng)
@@ -131,9 +130,7 @@ def main() -> None:
             thetas=thetas, summaries=summaries, s_obs=s_obs,
             n_posterior_samples=10_000, density_estimator="maf", subset=SummarySubset.ALL
         )
-        npe_samples[:, 0] = np.clip(npe_samples[:, 0], *PriorSampler.PRIOR_BOUNDS['beta'])
-        npe_samples[:, 1] = np.clip(npe_samples[:, 1], *PriorSampler.PRIOR_BOUNDS['gamma'])
-        npe_samples[:, 2] = np.clip(npe_samples[:, 2], *PriorSampler.PRIOR_BOUNDS['rho'])
+        PriorSampler.clip_to_prior(npe_samples)
         print(f"  Done in {time.time()-t0:.1f}s")
         results['NPE'] = {'samples': npe_samples, 'n_sims': BUDGET}
 

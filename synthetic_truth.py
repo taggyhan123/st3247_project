@@ -13,7 +13,7 @@ from simulator import simulate, simulate_fast
 from summary_statistic import compute_observed_summaries, SummaryStatistic, SummarySubset
 from abc_rejection import BasicRejectionABC
 from npe import NeuralPosteriorEstimation
-from abc_utils import PriorSampler, SummaryStatisticNormalizer
+from abc_utils import PriorSampler, run_pilot
 
 
 RNG_SEED = 1234
@@ -22,7 +22,6 @@ PARAM_NAMES = [r'$\beta$', r'$\gamma$', r'$\rho$']
 N_REPLICATES = 40
 N_SIM = 50_000
 ACCEPTANCE_QUANTILE = 0.01
-N_PILOT = 2000
 
 
 def generate_synthetic_observed(theta_true: np.ndarray, n_replicates: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -34,16 +33,6 @@ def generate_synthetic_observed(theta_true: np.ndarray, n_replicates: int, rng: 
         rew_list.append(rew)
         deg_list.append(deg)
     return np.array(inf_list), np.array(rew_list), np.array(deg_list)
-
-
-def run_pilot(prior_sampler: PriorSampler, rng: np.random.Generator) -> SummaryStatisticNormalizer:
-    """Run pilot simulations for MAD normaliser."""
-    pilot_summaries = []
-    p_betas, p_gammas, p_rhos = prior_sampler.sample(N_PILOT)
-    for i in range(N_PILOT):
-        inf, rew, deg = simulate(p_betas[i], p_gammas[i], p_rhos[i], rng=rng)
-        pilot_summaries.append(SummaryStatistic(inf, rew, deg))
-    return SummaryStatisticNormalizer(pilot_summaries)
 
 
 def check_coverage(samples: np.ndarray, theta_true: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -133,9 +122,7 @@ def main() -> None:
             n_posterior_samples=10_000, density_estimator="maf", subset=SummarySubset.ALL
         )
         # Clip to prior bounds
-        npe_samples[:, 0] = np.clip(npe_samples[:, 0], *PriorSampler.PRIOR_BOUNDS['beta'])
-        npe_samples[:, 1] = np.clip(npe_samples[:, 1], *PriorSampler.PRIOR_BOUNDS['gamma'])
-        npe_samples[:, 2] = np.clip(npe_samples[:, 2], *PriorSampler.PRIOR_BOUNDS['rho'])
+        PriorSampler.clip_to_prior(npe_samples)
         print(f"NPE done in {time.time()-t0:.1f}s")
 
         # Cache

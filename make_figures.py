@@ -17,8 +17,11 @@ from summary_statistic import SummaryStatistic, SummarySubset
 
 
 def plot_rejection_abc_corner(acc_rej: np.ndarray, param_labels: list[str]) -> None:
-    """
-    Figure: Rejection ABC corner plot
+    """Plots a corner plot of the Rejection ABC posterior samples.
+
+    Args:
+        acc_rej: Accepted parameter samples of shape (N, 3).
+        param_labels: LaTeX-formatted labels for each parameter axis.
     """
     fig = corner.corner(
         acc_rej,
@@ -35,8 +38,17 @@ def plot_rejection_abc_corner(acc_rej: np.ndarray, param_labels: list[str]) -> N
 
 
 def plot_summary_stats_comparison(thetas: np.ndarray, summaries: np.ndarray, mads: np.ndarray, s_obs: np.ndarray, param_labels: list[str]) -> None:
-    """
-    Figure: Summary statistics comparison
+    """Compares posteriors under different summary statistic subsets.
+
+    For each subset, re-applies the 1% acceptance quantile and plots marginal
+    histograms, 95% CI width bar charts, and beta-rho scatter plots.
+
+    Args:
+        thetas: All proposed parameter samples of shape (N, 3).
+        summaries: Corresponding summary statistics of shape (N, 12).
+        mads: Pre-computed MAD values for normalisation.
+        s_obs: Observed summary statistic vector.
+        param_labels: LaTeX-formatted labels for each parameter axis.
     """
     summary_subsets = {
         'Infected only':    SummarySubset.INFECTED,
@@ -50,8 +62,7 @@ def plot_summary_stats_comparison(thetas: np.ndarray, summaries: np.ndarray, mad
 
     results = {}
 
-    normalizer = SummaryStatisticNormalizer([])
-    normalizer.mads = mads
+    normalizer = SummaryStatisticNormalizer.from_mads(mads)
     s_obs_stat = SummaryStatistic(precomputed_summaries=s_obs)
     summary_stats_list = [SummaryStatistic(precomputed_summaries=s) for s in summaries]
 
@@ -122,8 +133,16 @@ def plot_all_methods_comparison(
     npe_data: Mapping[str, Any],
     param_labels: list[str]
 ) -> None:
-    """
-    Figure: All methods comparison
+    """Plots overlaid marginal posterior histograms for all six inference methods.
+
+    Args:
+        acc_rej: Accepted Rejection ABC samples of shape (N, 3).
+        reg_data: Regression-adjusted ABC results (.npz mapping).
+        mcmc_data: ABC-MCMC results (.npz mapping).
+        smc_data: SMC-ABC results (.npz mapping with 'weights' key).
+        sl_data: Synthetic Likelihood results (.npz mapping).
+        npe_data: NPE results (.npz mapping).
+        param_labels: LaTeX-formatted labels for each parameter axis.
     """
     methods = {
         'Rejection ABC': {'samples': acc_rej, 'weights': None},

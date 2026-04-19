@@ -15,7 +15,7 @@ import time
 import torch
 
 from data_loader import load_all
-from simulator import simulate, simulate_fast
+from simulator import simulate_fast
 from summary_statistic import (
     compute_observed_summaries,
     SummaryStatistic,
@@ -23,27 +23,7 @@ from summary_statistic import (
 )
 from abc_rejection import BasicRejectionABC
 from npe import NeuralPosteriorEstimation
-from abc_utils import PriorSampler, SummaryStatisticNormalizer
-
-
-def run_pilot(rng, prior_sampler, n_pilot=2000):
-    """Runs a pilot simulation batch to fit the summary-statistic normalizer.
-
-    Args:
-        rng: A NumPy random number generator instance.
-        prior_sampler: An object to sample from the prior distribution.
-        n_pilot: The number of pilot simulations to run. Defaults to 2000.
-
-    Returns:
-        SummaryStatisticNormalizer: A fitted normalizer for computing
-            distances between summary statistics.
-    """
-    p_betas, p_gammas, p_rhos = prior_sampler.sample(n_pilot)
-    pilot_summaries = []
-    for i in range(n_pilot):
-        inf, rew, deg = simulate(p_betas[i], p_gammas[i], p_rhos[i], rng=rng)
-        pilot_summaries.append(SummaryStatistic(inf, rew, deg))
-    return SummaryStatisticNormalizer(pilot_summaries)
+from abc_utils import PriorSampler, run_pilot
 
 
 def run_rejection_abc(rng, s_obs, normalizer, prior_sampler, n_sim=50_000):
@@ -92,9 +72,7 @@ def run_npe(rng, thetas, summaries, s_obs, prior_sampler):
         thetas=thetas, summaries=summaries, s_obs=s_obs,
         n_posterior_samples=10_000, density_estimator="maf", subset=SummarySubset.ALL,
     )
-    samples[:, 0] = np.clip(samples[:, 0], *PriorSampler.PRIOR_BOUNDS["beta"])
-    samples[:, 1] = np.clip(samples[:, 1], *PriorSampler.PRIOR_BOUNDS["gamma"])
-    samples[:, 2] = np.clip(samples[:, 2], *PriorSampler.PRIOR_BOUNDS["rho"])
+    PriorSampler.clip_to_prior(samples)
     return samples
 
 
@@ -151,7 +129,7 @@ def main():
         print(f"\n--- Seed {seed} ---")
         rng = np.random.default_rng(seed)
         prior_sampler = PriorSampler(rng)
-        normalizer = run_pilot(rng, prior_sampler)
+        normalizer = run_pilot(prior_sampler, rng)
 
         t0 = time.time()
         thetas, summaries, rej_accepted = run_rejection_abc(
@@ -199,7 +177,7 @@ def main():
 
     rng_main = np.random.default_rng(6769)
     prior_sampler_main = PriorSampler(rng_main)
-    normalizer_main = run_pilot(rng_main, prior_sampler_main)
+    normalizer_main = run_pilot(prior_sampler_main, rng_main)
 
     thetas_full, summaries_full, _ = run_rejection_abc(
         rng_main, s_obs, normalizer_main, prior_sampler_main, n_sim=50_000,

@@ -10,6 +10,7 @@ import torch
 
 from sbi.utils import BoxUniform
 
+from simulator import simulate
 from summary_statistic import SummaryStatistic, SummarySubset
 
 class SummaryStatisticNormalizer:
@@ -25,6 +26,20 @@ class SummaryStatisticNormalizer:
             prior_samples: A list of SummaryStatistic instances from pilot runs.
         """
         self.mads = self._compute_mads(prior_samples)
+
+    @classmethod
+    def from_mads(cls, mads: np.ndarray) -> SummaryStatisticNormalizer:
+        """Reconstructs a normalizer from pre-computed MAD values.
+
+        Args:
+            mads: A NumPy array of median absolute deviations.
+
+        Returns:
+            SummaryStatisticNormalizer: A normalizer instance with the given MADs.
+        """
+        instance = cls.__new__(cls)
+        instance.mads = mads
+        return instance
 
     def _compute_mads(self, prior_samples: list[SummaryStatistic]) -> npt.NDArray:
         """Internal method to compute median absolute deviations."""
@@ -112,6 +127,21 @@ class PriorSampler:
         return True
 
     @staticmethod
+    def clip_to_prior(samples: np.ndarray) -> np.ndarray:
+        """Clips parameter samples to lie within the prior bounds (in-place).
+
+        Args:
+            samples: An (N, 3) array of [beta, gamma, rho] parameter samples.
+
+        Returns:
+            np.ndarray: The same array, clipped in-place.
+        """
+        samples[:, 0] = np.clip(samples[:, 0], *PriorSampler.PRIOR_BOUNDS['beta'])
+        samples[:, 1] = np.clip(samples[:, 1], *PriorSampler.PRIOR_BOUNDS['gamma'])
+        samples[:, 2] = np.clip(samples[:, 2], *PriorSampler.PRIOR_BOUNDS['rho'])
+        return samples
+
+    @staticmethod
     def get_torch_prior():
         """Constructs a uniform prior distribution wrapped as a PyTorch distribution.
 
@@ -129,3 +159,27 @@ class PriorSampler:
             PriorSampler.PRIOR_BOUNDS["rho"][1],
         ], dtype=torch.float32)
         return BoxUniform(low=low, high=high)
+
+
+def run_pilot(
+    prior_sampler: PriorSampler,
+    rng: np.random.Generator,
+    n_pilot: int = 2000,
+) -> SummaryStatisticNormalizer:
+    """Runs pilot simulations to fit a MAD normalizer for summary statistics.
+
+    Args:
+        prior_sampler: An object to sample from the prior distribution.
+        rng: A NumPy random number generator instance.
+        n_pilot: The number of pilot simulations to run. Defaults to 2000.
+
+    Returns:
+        SummaryStatisticNormalizer: A fitted normalizer for computing
+            distances between summary statistics.
+    """
+    p_betas, p_gammas, p_rhos = prior_sampler.sample(n_pilot)
+    pilot_summaries = []
+    for i in range(n_pilot):
+        inf, rew, deg = simulate(p_betas[i], p_gammas[i], p_rhos[i], rng=rng)
+        pilot_summaries.append(SummaryStatistic(inf, rew, deg))
+    return SummaryStatisticNormalizer(pilot_summaries)

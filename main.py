@@ -1,3 +1,9 @@
+"""Main orchestration script for running all ABC inference methods.
+
+Loads observed data, runs six inference algorithms (Rejection ABC,
+Regression-Adjusted ABC, ABC-MCMC, SMC-ABC, Synthetic Likelihood, and NPE),
+caches results, and prints a unified comparison table.
+"""
 from __future__ import annotations
 
 import numpy as np
@@ -27,7 +33,8 @@ from npe import NeuralPosteriorEstimation
 # Algorithm Utils
 from abc_utils import (
     PriorSampler,
-    SummaryStatisticNormalizer
+    SummaryStatisticNormalizer,
+    run_pilot,
 )
 
 # Orchestration modules
@@ -108,7 +115,7 @@ def main():
 
     prior_sampler = PriorSampler(rng)
 
-    summary_statistic_normalizer = run_pilot_for_normalizer(prior_sampler, rng)
+    summary_statistic_normalizer = run_pilot(prior_sampler, rng)
     
     # a. Basic ABC Rejection Algorithm
     rej_path = 'results/rejection_abc_50k.npz'
@@ -228,29 +235,15 @@ def main():
     aggregator.print_comparison_table()
 
 def _warm_up_numba():
+    """Triggers Numba JIT compilation of the simulator before timed runs."""
     _ = simulate_fast(0.2, 0.1, 0.3, seed=0)
-
-def run_pilot_for_normalizer(prior_sampler: PriorSampler, rng: np.random.Generator) -> SummaryStatisticNormalizer:
-    """
-    Runs a pilot simulation to compute Median Absolute Deviations (MADs)
-    for summary statistic normalization.
-    """
-    N_PILOT = 2000
-    print(f"\nRunning pilot ({N_PILOT} sims) for MAD normalisation...")
-    p_betas, p_gammas, p_rhos = prior_sampler.sample(N_PILOT)
-    pilot_summaries = []
-    for i in range(N_PILOT):
-        inf, rew, deg = simulate(p_betas[i], p_gammas[i], p_rhos[i], rng=rng)
-        pilot_summaries.append(SummaryStatistic(inf, rew, deg))
-    
-    return SummaryStatisticNormalizer(pilot_summaries)
 
 def rejection_abc_run(rng: np.random.Generator,
                       observed_summary: SummaryStatistic,
                       normalizer: SummaryStatisticNormalizer,
                       prior_sampler: PriorSampler,
                       aggregator: ResultAggregator):
-    # Parameters
+    """Runs Rejection ABC with 50k simulations and 1% acceptance quantile."""
     t0 = time.time()
     N_SIM = 50000
     N_REPS_PER_SIM = 1
@@ -279,6 +272,7 @@ def rejection_abc_run(rng: np.random.Generator,
     return thetas, distances, summaries, acc_mask, thr_rej
 
 def regression_adjust_run(thetas, summaries, distances, s_obs_array, acc_mask, aggregator: ResultAggregator):
+    """Applies local-linear regression adjustment to Rejection ABC samples."""
     t0 = time.time()
     print("\n" + "=" * 70)
     print("METHOD 2: Regression-Adjusted ABC")
@@ -291,9 +285,7 @@ def regression_adjust_run(thetas, summaries, distances, s_obs_array, acc_mask, a
     print(f"Using {len(acc_reg)} accepted samples from Rejection ABC for regression adjustment")
     
     adjusted_thetas = regression_adjust(acc_reg, acc_s_reg, acc_d_reg, s_obs_array)
-    adjusted_thetas[:, 0] = np.clip(adjusted_thetas[:, 0], *PriorSampler.PRIOR_BOUNDS['beta'])
-    adjusted_thetas[:, 1] = np.clip(adjusted_thetas[:, 1], *PriorSampler.PRIOR_BOUNDS['gamma'])
-    adjusted_thetas[:, 2] = np.clip(adjusted_thetas[:, 2], *PriorSampler.PRIOR_BOUNDS['rho'])
+    PriorSampler.clip_to_prior(adjusted_thetas)
     
     t_regadj = time.time() - t0
     print(f"Regression adjustment took {t_regadj:.3f}s")
@@ -311,6 +303,7 @@ def mcmc_abc_run(rng: np.random.Generator,
                  abc_rej_accepted_thetas: np.ndarray,
                  abc_rej_threshold: float,
                  aggregator: ResultAggregator):
+    """Runs ABC-MCMC (Marjoram et al. 2003) initialised from Rejection ABC posteriors."""
     print("\n" + "=" * 70)
     print("METHOD 3: ABC-MCMC (Marjoram et al. 2003)")
     print("=" * 70)
@@ -350,6 +343,7 @@ def smc_abc_run(rng: np.random.Generator,
                 normalizer: SummaryStatisticNormalizer,
                 prior_sampler: PriorSampler,
                 aggregator: ResultAggregator):
+    """Runs SMC-ABC (Beaumont et al. 2009) with adaptive tolerance schedule."""
     print("\n" + "=" * 70)
     print("METHOD 4: SMC-ABC (Beaumont et al. 2009)")
     print("=" * 70)
@@ -380,6 +374,7 @@ def synthetic_likelihood_run(rng: np.random.Generator,
                              prior_sampler: PriorSampler,
                              abc_rej_accepted_thetas: np.ndarray,
                              aggregator: ResultAggregator):
+    """Runs Synthetic Likelihood MCMC (Wood, 2010) with robust covariance estimation."""
     print("\n" + "=" * 70)
     print("METHOD 5: Synthetic Likelihood (Wood, 2010)")
     print("=" * 70)
@@ -416,6 +411,7 @@ def npe_run(rng: np.random.Generator,
             observed_summary: SummaryStatistic,
             prior_sampler: PriorSampler,
             aggregator: ResultAggregator):
+    """Runs Neural Posterior Estimation using a MAF density estimator via sbi."""
     t0 = time.time()
     print("\n" + "=" * 70)
     print("METHOD 6: Neural Posterior Estimation (sbi, MAF density estimator)")
@@ -433,9 +429,7 @@ def npe_run(rng: np.random.Generator,
     )
 
     # Clip to prior bounds (NPE can sample slightly outside if density mass leaks)
-    samples[:, 0] = np.clip(samples[:, 0], *PriorSampler.PRIOR_BOUNDS['beta'])
-    samples[:, 1] = np.clip(samples[:, 1], *PriorSampler.PRIOR_BOUNDS['gamma'])
-    samples[:, 2] = np.clip(samples[:, 2], *PriorSampler.PRIOR_BOUNDS['rho'])
+    PriorSampler.clip_to_prior(samples)
 
     t_npe = time.time() - t0
     print(f"Completed in {t_npe:.1f}s")
