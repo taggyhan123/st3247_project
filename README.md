@@ -34,6 +34,7 @@ To avoid redundant, expensive simulation calls, all intermediate results are aut
 * **`synthetic_truth.py`**: Simulates synthetic data using known parameters and checks if the 95% Credible Intervals of the algorithms successfully cover the true values.
 * **`run_summary_subsets.py`**: Analyzes how using different subsets of summary statistics impacts the width of the resulting posteriors.
 * **`posterior_predictive.py`**: Uses the NPE posterior to simulate outcome envelopes and overlays them against the actual observed data.
+* **`robustness.py`**: Verifies that conclusions are stable across random seeds (42, 123, 9999) and NPE training-set sizes (10k, 25k, 50k). Saves results to `results/robustness.npz`.
 * **`make_figures.py`**: A plotting engine that loads cached `.npz` files to build the comparative visualizations without re-running any simulations.
 
 ### Core Implementations

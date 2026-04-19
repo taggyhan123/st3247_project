@@ -1,5 +1,11 @@
-"""
-Robustness checks: vary random seed and NPE training-set size.
+"""Robustness checks: vary random seed and NPE training-set size.
+
+This script runs two experiments to verify that the main inference results
+are not artefacts of a particular random seed or hyperparameter choice:
+  Experiment 1 — Re-runs the full rejection ABC + NPE pipeline across
+      multiple seeds and reports posterior median shifts and CI width CVs.
+  Experiment 2 — Varies the NPE training-set size to check convergence.
+
 Outputs a summary table to stdout and saves results to results/robustness.npz.
 """
 
@@ -21,6 +27,17 @@ from abc_utils import PriorSampler, SummaryStatisticNormalizer
 
 
 def run_pilot(rng, prior_sampler, n_pilot=2000):
+    """Runs a pilot simulation batch to fit the summary-statistic normalizer.
+
+    Args:
+        rng: A NumPy random number generator instance.
+        prior_sampler: An object to sample from the prior distribution.
+        n_pilot: The number of pilot simulations to run. Defaults to 2000.
+
+    Returns:
+        SummaryStatisticNormalizer: A fitted normalizer for computing
+            distances between summary statistics.
+    """
     p_betas, p_gammas, p_rhos = prior_sampler.sample(n_pilot)
     pilot_summaries = []
     for i in range(n_pilot):
@@ -30,6 +47,23 @@ def run_pilot(rng, prior_sampler, n_pilot=2000):
 
 
 def run_rejection_abc(rng, s_obs, normalizer, prior_sampler, n_sim=50_000):
+    """Runs rejection ABC and returns all proposals plus accepted samples.
+
+    Args:
+        rng: A NumPy random number generator instance.
+        s_obs: The observed summary statistics.
+        normalizer: A fitted normalizer for distance computation.
+        prior_sampler: An object to sample from the prior distribution.
+        n_sim: The number of simulations to run. Defaults to 50,000.
+
+    Returns:
+        tuple: A tuple containing:
+            - thetas (np.ndarray): All proposed parameter samples of shape
+                (n_sim, 3).
+            - summaries (np.ndarray): Summary statistics for all proposals
+                of shape (n_sim, 12).
+            - accepted (np.ndarray): The accepted parameter samples.
+    """
     runner = BasicRejectionABC(rng=rng, normalizer=normalizer,
                                prior_sampler=prior_sampler, verbose=False)
     thetas, distances, summaries, acc_mask, _ = runner.run(
@@ -40,6 +74,19 @@ def run_rejection_abc(rng, s_obs, normalizer, prior_sampler, n_sim=50_000):
 
 
 def run_npe(rng, thetas, summaries, s_obs, prior_sampler):
+    """Trains NPE and returns clipped posterior samples.
+
+    Args:
+        rng: A NumPy random number generator instance.
+        thetas: An array of simulated parameter samples of shape (n, 3).
+        summaries: An array of summary statistics of shape (n, 12).
+        s_obs: The observed summary statistics.
+        prior_sampler: An object to provide the prior distribution bounds.
+
+    Returns:
+        np.ndarray: Posterior samples of shape (10000, 3), clipped to the
+            prior bounds.
+    """
     npe = NeuralPosteriorEstimation(rng=rng, prior_sampler=prior_sampler, verbose=False)
     samples, _ = npe.run(
         thetas=thetas, summaries=summaries, s_obs=s_obs,
@@ -52,12 +99,30 @@ def run_npe(rng, thetas, summaries, s_obs, prior_sampler):
 
 
 def stats(samples):
+    """Computes posterior medians and 95% credible interval widths.
+
+    Args:
+        samples: An array of posterior samples of shape (n_samples, n_params).
+
+    Returns:
+        tuple: A tuple containing:
+            - meds (np.ndarray): Per-parameter posterior medians.
+            - widths (np.ndarray): Per-parameter 95% CI widths
+                (97.5th - 2.5th percentile).
+    """
     meds = np.median(samples, axis=0)
     widths = np.percentile(samples, 97.5, axis=0) - np.percentile(samples, 2.5, axis=0)
     return meds, widths
 
 
 def main():
+    """Runs all robustness experiments and saves results.
+
+    Experiment 1 varies the random seed across three values (42, 123, 9999)
+    and reports posterior stability for both rejection ABC and NPE.
+    Experiment 2 varies the NPE training-set size (10k, 25k, 50k) to
+    check convergence. Results are saved to results/robustness.npz.
+    """
     os.makedirs("results", exist_ok=True)
 
     # Warm up Numba
