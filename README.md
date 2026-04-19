@@ -5,7 +5,7 @@ This repository contains our codebase for parameter inference on network epidemi
 ## How to Use
 
 ### Prerequisites
-Ensure you have Python 3.8+ installed. Install the required dependencies:
+Ensure you have Python 3.9+ installed. Install the required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
